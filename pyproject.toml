@@ -1,0 +1,23 @@
+# Uses hatchling.
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "warehouse-pipeline"
+version = "0.0.0"
+description = "Warehouse pipeline repository."  # more add dev info to project later.
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "psycopg[binary]>=3.2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
