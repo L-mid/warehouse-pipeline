@@ -18,7 +18,6 @@ pip install -e ".[dev]"
 
 # run tests
 make demo
-make test
 ```
 
 
@@ -35,6 +34,10 @@ docker compose exec db psql -U postgres -d warehouse
 # clean reset of db:
 make down
 make demo
+
+
+# make tests only
+make test
 ```
 
 

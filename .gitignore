@@ -1,4 +1,11 @@
+
+# markdown
 plan.md
+init.md
+parsing.md
+
+# other
 *__pycache__
 .venv
 .pytest_cache
+.vscode
