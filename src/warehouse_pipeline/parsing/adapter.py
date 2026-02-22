@@ -40,7 +40,7 @@ def adapt_row(      # validate row
     if reject_unknown_input_fields and unknown:
         return RejectRow(
             reason_code=RejectCode.unknown_field,
-            detail=f"unknown input fields: {unknown}",
+            reason_detail=f"unknown input fields: {unknown}",
             raw_payload=raw_payload,
             source_row=source_row,
         )

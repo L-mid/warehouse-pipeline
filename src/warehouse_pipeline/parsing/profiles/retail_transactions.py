@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Mapping
+from dataclasses import dataclass
 
 from warehouse_pipeline.parsing.adapter import adapt_row
 from warehouse_pipeline.parsing.primitives import (
@@ -9,6 +10,7 @@ from warehouse_pipeline.parsing.primitives import (
     parse_numeric_12_2,
     parse_optional_text,
     parse_required_text,
+    parse_bool_01,
 )
 from warehouse_pipeline.parsing.schema import FieldSpec, RowParser
 from warehouse_pipeline.parsing.types import RejectRow
@@ -77,7 +79,7 @@ _RETAIL_INPUT_ALIASES: dict[str, str] = {
 
 # all known expected fields for `retail_transactions.csv`
 _RETAIL_KNOWN = set(_RETAIL_INPUT_ALIASES.values())
-
+ 
 retail_transactions_parser = RowParser(
     known_fields=_RETAIL_KNOWN,
     reject_unknown_fields=True,  # catches bugs where canonicalization adds extra keys
@@ -112,8 +114,8 @@ retail_transactions_parser = RowParser(
 
         FieldSpec("competitor_price_index", lambda r: r.get("competitor_price_index"), lambda v: parse_numeric_12_2(v, field="competitor_price_index"), True),
         FieldSpec("stock_on_hand", lambda r: r.get("stock_on_hand"), lambda v: parse_int(v, field="stock_on_hand"), True),
-        FieldSpec("stockout_flag", lambda r: r.get("stockout_flag"), lambda v: parse_int(v, field="stockout_flag"), True),
-        FieldSpec("holiday_flag", lambda r: r.get("holiday_flag"), lambda v: parse_int(v, field="holiday_flag"), True),
+        FieldSpec("stockout_flag", lambda r: r.get("stockout_flag"), lambda v: parse_bool_01(v, field="stockout_flag"), True),
+        FieldSpec("holiday_flag", lambda r: r.get("holiday_flag"), lambda v: parse_bool_01(v, field="holiday_flag"), True),
     ],
 )
 
@@ -142,3 +144,15 @@ def parse_retail_transaction_row(raw: Mapping[str, Any], *, source_row: int) -> 
         source_row=source_row,
         raw_payload={"raw": dict(raw), "canonical": canon},
     )
+
+
+@dataclass(frozen=True)
+class FunctionRowParser:
+    """Return `parse_retail_transaction_row` in an object, for imports."""
+    fn: Any  # must be callable
+
+    def parse(self, raw: Mapping[str, Any], *, source_row: int) -> object:
+        return self.fn(raw, source_row=source_row)
+
+# import
+RETAIL_TRANSACTIONS_PARSER = FunctionRowParser(parse_retail_transaction_row)

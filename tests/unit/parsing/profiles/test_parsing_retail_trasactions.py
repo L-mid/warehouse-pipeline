@@ -92,7 +92,7 @@ def test_retail_missing_required_sku() -> None:
     res = parse_retail_transaction_row(raw, source_row=2)
     assert isinstance(res, RejectRow)
     assert res.reason_code == RejectCode.missing_required
-    assert "sku" in res.detail
+    assert "sku" in res.reason_detail
 
 
 def test_retail_invalid_int_week() -> None:
@@ -124,7 +124,7 @@ def test_retail_invalid_int_week() -> None:
     res = parse_retail_transaction_row(raw, source_row=3)
     assert isinstance(res, RejectRow)
     assert res.reason_code == RejectCode.invalid_int
-    assert "week" in res.detail
+    assert "week" in res.reason_detail
 
 
 def test_retail_invalid_date_uses_invalid_timestamp_code() -> None:
@@ -156,7 +156,7 @@ def test_retail_invalid_date_uses_invalid_timestamp_code() -> None:
     res = parse_retail_transaction_row(raw, source_row=4)
     assert isinstance(res, RejectRow)
     assert res.reason_code == RejectCode.invalid_timestamp
-    assert "date" in res.detail
+    assert "date" in res.reason_detail
 
 
 def test_retail_unknown_field_rejected() -> None:
@@ -189,7 +189,7 @@ def test_retail_unknown_field_rejected() -> None:
     res = parse_retail_transaction_row(raw, source_row=5)
     assert isinstance(res, RejectRow)
     assert res.reason_code == RejectCode.unknown_field
-    assert "extra" in res.detail
+    assert "extra" in res.reason_detail
 
 
 

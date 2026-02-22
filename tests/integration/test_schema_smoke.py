@@ -1,6 +1,6 @@
 import json
 import psycopg
-
+ 
 
 def test_tables_exist(conn: psycopg.Connection) -> None:
     """Fetch all tables and assert they exist."""
@@ -8,18 +8,18 @@ def test_tables_exist(conn: psycopg.Connection) -> None:
         cur.execute(
             """
             SELECT
-              to_regclass('public.ingest_runs')   IS NOT NULL AS ingest_runs_ok,
-              to_regclass('public.stg_customers') IS NOT NULL AS stg_customers_ok,
-              to_regclass('public.stg_orders')    IS NOT NULL AS stg_orders_ok,
-              to_regclass('public.reject_rows')   IS NOT NULL AS reject_rows_ok
+              to_regclass('public.ingest_runs')             IS NOT NULL AS ingest_runs_ok,
+              to_regclass('public.stg_customers')           IS NOT NULL AS stg_customers_ok,
+              to_regclass('public.stg_retail_transactions') IS NOT NULL AS stg_retail_transactions_ok,
+              to_regclass('public.reject_rows')             IS NOT NULL AS reject_rows_ok
             """
         )
-        ingest_ok, cust_ok, orders_ok, reject_ok = cur.fetchone()
-    assert ingest_ok and cust_ok and orders_ok and reject_ok
+        ingest_ok, cust_ok, retail_transactions_ok, reject_ok = cur.fetchone()
+    assert ingest_ok and cust_ok and retail_transactions_ok and reject_ok
 
 
 def test_ingest_runs_status_check_constraint(conn: psycopg.Connection) -> None:
-    """Row is falsy or errors if status is not in expected."""
+    """Row is falsey or errors if status is not in expected."""
     with conn.cursor() as cur:
         try:
             cur.execute(
@@ -31,13 +31,13 @@ def test_ingest_runs_status_check_constraint(conn: psycopg.Connection) -> None:
             )
             assert False, "expected CHECK constraint to reject invalid status"
         except Exception:
-            # minimal: any error is fine (it should for sure fail). Should tighten later.
+            # for now, any error is fine (it should for sure fail). Should tighten later.
             conn.rollback()
 
 
 def test_delete_run_cascades_to_staging_and_rejects(conn: psycopg.Connection) -> None:
     """ 
-    Inserts a good row and a reject row, and asserts on deletion both are 0.
+    Inserts a good row and a reject row, and asserts that deleting `ingest_runs` cascades to both.
     """
     with conn.cursor() as cur:
         # create a run
@@ -51,13 +51,30 @@ def test_delete_run_cascades_to_staging_and_rejects(conn: psycopg.Connection) ->
         )
         (run_id,) = cur.fetchone()
 
-        # insert a good staging row
+        # insert a good staging row. Example used: `stg_customers`.
         cur.execute(
             """
-            INSERT INTO stg_customers (run_id, customer_id, full_name, email, signup_date, country)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO stg_customers (
+              run_id, customer_id, first_name, last_name, full_name,
+              company, city, country, phone_1, phone_2, email, subscription_date, website
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            (run_id, 123, "Ada Lovelace", "ada@example.com", "2026-01-01", "GB"),
+            (
+                run_id,
+                "dE014d010c7ab0c",
+                "Ada",
+                "Lovelace",
+                "Ada Lovelace",
+                "Stewart-Flynn",
+                "Rowlandberg",
+                "GB",
+                "846-790-4623x4715",
+                "(422)787-2331x71127",
+                "ada@example.com",
+                "2021-07-26",
+                "http://example.com/",
+            ),
         )
 
         # insert a reject row
@@ -72,11 +89,11 @@ def test_delete_run_cascades_to_staging_and_rejects(conn: psycopg.Connection) ->
                 7,
                 json.dumps({"raw_line": "  bad,row,here  "}),
                 "invalid_date",
-                "signup_date='not-a-date'",
+                "subscription_date='not-a-date'",
             ),
         )
 
-        # delete the run -> should cascade
+        # delete the run, which should cascade to full deletion.
         cur.execute("DELETE FROM ingest_runs WHERE run_id = %s", (run_id,))
 
         cur.execute("SELECT COUNT(*) FROM stg_customers WHERE run_id = %s", (run_id,))
@@ -87,3 +104,4 @@ def test_delete_run_cascades_to_staging_and_rejects(conn: psycopg.Connection) ->
 
     assert stg_count == 0
     assert rej_count == 0   
+    # delete cascaded to these rows, success

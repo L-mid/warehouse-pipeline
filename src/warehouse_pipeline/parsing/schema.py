@@ -57,11 +57,11 @@ class RowParser:
             if unknown:
                 return RejectRow(
                     reason_code=RejectCode.unknown_field,
-                    detail=f"unknown fields: {unknown}",
+                    reason_detail=f"unknown fields: {unknown}",
                     raw_payload=raw_payload,
                     source_row=source_row,
                 )
-
+ 
         ## -- Parsing loop
         out: dict[str, Any] = {}
         for f in self.fields:
@@ -81,14 +81,18 @@ class RowParser:
                 
                 # field's value passed filters and is now assigned.
                 out[f.out_name] = f.parser(raw_v)
-
+ 
             # 3rd rejection reason: typing / formatting error.
             except ParseError as e:
                 return RejectRow(
                     reason_code=e.code,
-                    detail=e.detail,
+                    reason_detail=e.detail,
                     raw_payload=raw_payload,
                     source_row=source_row,
                 )
 
-        return ParsedRow(out)
+        return ParsedRow(
+            values=out, 
+            source_row=source_row, 
+            raw_payload=raw_payload,
+        )

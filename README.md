@@ -16,6 +16,9 @@ python -m venv .venv
 python -m pip install -U pip
 pip install -e ".[dev]"
 
+# initalize the DB:
+pipeline db init        # restarts the DB from scratch every time
+
 # run tests
 make demo
 ```
@@ -24,19 +27,22 @@ make demo
 ## Commands: 
 Availible:
 ```bash
+# start 
 make demo
 
-# Inspect with psql:
+
+# Inspect the DB with psql anytime:
 docker compose exec db psql -U postgres -d warehouse
 \dt
 
 
-# clean reset of db:
-make down
+# clean reset of DB:
+make down           
+pipeline db init    
 make demo
 
 
-# make tests only
+# run tests only
 make test
 ```
 

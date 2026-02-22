@@ -41,7 +41,7 @@ def main() -> None:
     for t in tables:
         print(f"  - {t}")
 
-    needed = {"ingest_runs", "stg_customers", "stg_orders", "reject_rows"}
+    needed = {"ingest_runs", "stg_customers", "stg_retail_transactions", "reject_rows"}
     missing = sorted(list(needed - set(tables)))
     if missing:
         raise SystemExit(f"Missing expected tables: {missing}")

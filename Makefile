@@ -10,12 +10,16 @@ up:
 down:
 	docker compose down -v
 
+init: 
+	pipeline db init
+
 test:
 	$(PY) -m pytest -q
 
 demo: up
 	$(PY) scripts/demo.py
 	$(PY) -m pytest -q
+
 
 release:
 	@test -n "$(VERSION)" || (echo "Usage: make release VERSION=v0.1.0" && exit 2)

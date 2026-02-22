@@ -7,7 +7,7 @@ from typing import Any
 
 from .types import RejectCode
 
-
+ 
 @dataclass(frozen=True, slots=True)
 class ParseError(Exception):
     """Handles rejected fields, with additonal rejection details from error messages."""
@@ -150,3 +150,18 @@ def parse_timestamptz_iso(v: Any, *, field: str) -> datetime:
         dt = dt.replace(tzinfo=timezone.utc)
 
     return dt
+
+
+def parse_bool_01(v: object, *, field: str) -> bool:
+    if v is None:
+        raise ParseError(RejectCode.missing_required, f"{field}: missing required bool")
+
+    if isinstance(v, bool):
+        return v
+
+    s = str(v).strip().lower()
+    # the allowed bool matches
+    if s in ("1", "true", "t", "yes", "y"): return True
+    if s in ("0", "false", "f", "no", "n"): return False
+
+    raise ParseError(RejectCode.invalid_int, f"{field}: invalid boolean '{v}' (expected 0/1 or true/false)")
