@@ -11,7 +11,29 @@ from warehouse_pipeline.dq.runner import run_dq
  
 def main(argv: list[str] | None = None) -> int:
     """
-    Note: add usage exs and notes about the cli later.
+    A CLI for loading and staging data into a Postgres database.
+
+    The `cmd` options are:
+    ## load:   
+    Will load and stage the provided sample data into Postgres.
+    - `--input` as the path to the data, 
+    - `--table` as its respective staging table
+
+    A results summary will print in the termial upon completion of a load.
+
+    
+    ### Example load usage:
+    #### For customer sample data:
+    - `pipeline load --input data/sample/customers-1000.csv --table stg_customers`
+
+    #### For retail transactions sample data:
+    - `pipeline load --input data/sample/retail_transactions.csv --table stg_retail_transactions`
+
+
+    ## db:     
+    Database controlling commands, includes DB initalization functionality. 
+    - `init` is the command to reinitalize the DB
+    - `--sql` is an optional pointer to which dir contains the SQL file(s) you want to use to re-initalize.
     """
     p = argparse.ArgumentParser(prog="pipeline")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -20,18 +42,14 @@ def main(argv: list[str] | None = None) -> int:
     load.add_argument("--input", required=True, help="Path to input file (CSV or JSONL).")
     load.add_argument("--table", required=True, choices=["stg_customers", "stg_retail_transactions"])
 
-    dq = sub.add_parser("dq", help="Run DQ checks for an existing run_id + table.")
-    dq.add_argument("--run-id", required=True, help="Run UUID (from `ingest_runs.run_id`).")
-    dq.add_argument("--table", required=True, choices=["stg_customers", "stg_retail_transactions"])
-
     db = sub.add_parser("db", help="Database utilities.")
     db_sub = db.add_subparsers(dest="db_cmd", required=True)
 
-    db_init_p = db_sub.add_parser("init", help="Initialize DB schema from an SQL file.")
+    db_init_p = db_sub.add_parser("init", help="Initialize DB schema from SQL file(s).")
     db_init_p.add_argument("--sql", default="sql", help="Path to schema SQL file OR a directory of `.sql` files.")
 
     args = p.parse_args(argv)
-
+ 
 
     if args.cmd == "load":
         input_path = Path(args.input)

@@ -23,7 +23,6 @@ def test_cli_help_prints_and_exits_zero(capsys: pytest.CaptureFixture[str]) -> N
     assert "usage: pipeline" in out
     assert "load" in out
     assert "db" in out
-    assert "dq" in out
 
 
 def test_cli_load_happy_path_calls_loader_and_prints_summary(

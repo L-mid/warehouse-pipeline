@@ -7,7 +7,7 @@ from pathlib import Path
 import psycopg
 
 
-
+ 
 def _run_sql_file(conn: psycopg.Connection, sql_path: Path) -> None:
     """Read and execute a `.sql` file."""
     sql = sql_path.read_text(encoding="utf-8")
@@ -39,8 +39,8 @@ def db_init(*, sql_path: Path) -> None:
         # dir logic
         if sql_path.is_dir():       
             for p in sorted(sql_path.glob("*.sql")):    # ASC.
-                _run_sql_file(conn, p.read_text(encoding="utf-8"))
+                _run_sql_file(conn, p) 
         # just run one file
         else:
-            _run_sql_file(conn, sql_path.read_text(encoding="utf-8"))
+            _run_sql_file(conn, p)
     
