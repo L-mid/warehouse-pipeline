@@ -5,6 +5,9 @@ init.md
 parsing.md
 cli.md
 code/
+zip_cmd.py
+*zip
+
 
 # other
 *__pycache__

@@ -11,13 +11,14 @@ def test_tables_exist(conn: psycopg.Connection) -> None:
               to_regclass('public.ingest_runs')             IS NOT NULL AS ingest_runs_ok,
               to_regclass('public.stg_customers')           IS NOT NULL AS stg_customers_ok,
               to_regclass('public.stg_retail_transactions') IS NOT NULL AS stg_retail_transactions_ok,
-              to_regclass('public.reject_rows')             IS NOT NULL AS reject_rows_ok
+              to_regclass('public.reject_rows')             IS NOT NULL AS reject_rows_ok,
+              to_regclass('public.dq_results')              IS NOT NULL AS dq_results_ok
             """
         )
-        ingest_ok, cust_ok, retail_transactions_ok, reject_ok = cur.fetchone()
-    assert ingest_ok and cust_ok and retail_transactions_ok and reject_ok
+        ingest_ok, cust_ok, retail_transactions_ok, reject_ok, dq_ok = cur.fetchone()
+    assert ingest_ok and cust_ok and retail_transactions_ok and reject_ok and dq_ok
 
-
+ 
 def test_ingest_runs_status_check_constraint(conn: psycopg.Connection) -> None:
     """Row is falsey or errors if status is not in expected."""
     with conn.cursor() as cur:
@@ -93,6 +94,23 @@ def test_delete_run_cascades_to_staging_and_rejects(conn: psycopg.Connection) ->
             ),
         )
 
+        # insert a `dq_results` row 
+        cur.execute(
+            """
+            INSERT INTO dq_results (run_id, table_name, check_name, metric_name, metric_value, passed, details_json)
+            VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb)
+            """,
+            (
+                run_id,
+                "stg_customers",
+                "uniqueness_of_key",
+                "customer_id.duplicate_keys",
+                0,
+                True,
+                json.dumps({"example": True}),
+            ),
+        )
+
         # delete the run, which should cascade to full deletion.
         cur.execute("DELETE FROM ingest_runs WHERE run_id = %s", (run_id,))
 
@@ -102,6 +120,10 @@ def test_delete_run_cascades_to_staging_and_rejects(conn: psycopg.Connection) ->
         cur.execute("SELECT COUNT(*) FROM reject_rows WHERE run_id = %s", (run_id,))
         (rej_count,) = cur.fetchone()
 
+        cur.execute("SELECT COUNT(*) FROM dq_results WHERE run_id = %s", (run_id,))
+        (dq_count,) = cur.fetchone()
+
     assert stg_count == 0
     assert rej_count == 0   
-    # delete cascaded to these rows, success
+    assert dq_count == 0
+    # deletion of `ingest_runs` cascaded to these rows, success

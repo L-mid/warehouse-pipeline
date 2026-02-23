@@ -32,8 +32,7 @@ make demo
 
 
 # Inspect the DB with psql anytime:
-docker compose exec db psql -U postgres -d warehouse
-\dt
+docker compose exec db psql -U postgres -d warehouse \dt
 
 
 # clean reset of DB:

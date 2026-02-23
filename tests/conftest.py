@@ -29,6 +29,7 @@ def repo_root() -> Path:
 # for avoiding schema drift: re-init tables fresh each test run.
 TRUNCATE_ALL = """
 TRUNCATE TABLE
+  dq_results,
   reject_rows,
   stg_retail_transactions,
   stg_customers,
@@ -38,6 +39,7 @@ RESTART IDENTITY CASCADE;
 
 DROP_ALL = """
 DROP TABLE IF EXISTS
+  dq_results,
   reject_rows,
   stg_retail_transactions,
   stg_customers,

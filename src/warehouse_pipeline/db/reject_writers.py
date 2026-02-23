@@ -64,7 +64,7 @@ def insert_reject_rows(conn: Connection, *, run_id: UUID, rejects: Sequence[Reje
                 r.reason_detail,
             )
         )
- 
+  
     if params:
         with conn.cursor() as cur:
             cur.executemany(query, params)  # sequential batch processing

@@ -101,3 +101,24 @@ CREATE INDEX IF NOT EXISTS reject_rows_run_table_idx
 
 CREATE INDEX IF NOT EXISTS reject_rows_reason_idx
   ON reject_rows (table_name, reason_code);
+
+
+-- dq_results (data quality metric rows per run/table)
+-- grain is one row per metric.
+CREATE TABLE IF NOT EXISTS dq_results (
+  run_id        uuid NOT NULL REFERENCES ingest_runs(run_id) ON DELETE CASCADE,
+  table_name    text NOT NULL,
+  check_name    text NOT NULL,
+  metric_name   text NOT NULL,
+  metric_value  numeric(18,6) NOT NULL,
+  passed        boolean NOT NULL,
+  details_json  jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (run_id, table_name, check_name, metric_name)
+);
+
+CREATE INDEX IF NOT EXISTS dq_results_run_table_idx
+  ON dq_results (run_id, table_name);
+
+CREATE INDEX IF NOT EXISTS dq_results_check_idx
+  ON dq_results (run_id, table_name, check_name);

@@ -6,8 +6,9 @@ from pathlib import Path
 from warehouse_pipeline.db.initialize import db_init
 from warehouse_pipeline.db.connect import connect
 from warehouse_pipeline.cli.loader import load_file
+from warehouse_pipeline.dq.runner import run_dq
 
-
+ 
 def main(argv: list[str] | None = None) -> int:
     """
     Note: add usage exs and notes about the cli later.
@@ -18,6 +19,10 @@ def main(argv: list[str] | None = None) -> int:
     load = sub.add_parser("load", help="Load a file into a staging table (with rejects).")
     load.add_argument("--input", required=True, help="Path to input file (CSV or JSONL).")
     load.add_argument("--table", required=True, choices=["stg_customers", "stg_retail_transactions"])
+
+    dq = sub.add_parser("dq", help="Run DQ checks for an existing run_id + table.")
+    dq.add_argument("--run-id", required=True, help="Run UUID (from `ingest_runs.run_id`).")
+    dq.add_argument("--table", required=True, choices=["stg_customers", "stg_retail_transactions"])
 
     db = sub.add_parser("db", help="Database utilities.")
     db_sub = db.add_subparsers(dest="db_cmd", required=True)
@@ -32,6 +37,9 @@ def main(argv: list[str] | None = None) -> int:
         input_path = Path(args.input)
         with connect() as conn:
             summary = load_file(conn, input_path=input_path, table_name=args.table)
+
+            run_dq(conn, run_id=summary.run_id, table_name=summary.table_name)
+
         print(summary.render_one_line())
         return 0
 
