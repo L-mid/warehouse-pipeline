@@ -1,0 +1,5 @@
+customer_id,first_name,last_name,subscription_date
+c1,Ada,Lovelace,2026-01-01
+c2,Alan,Turing,2026-01-01
+c3,Grace,Hopper,2026-01-02
+c4,Linus,Torvalds,2026-01-04

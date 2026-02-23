@@ -34,7 +34,10 @@ def debug_reject_breakdown(conn, run_id, table_name: str) -> None:
 
 # @pytest.mark.integration      add these marks
 def test_load_end_to_end_customers_and_retail_transactions(conn, repo_root) -> None:
-    # clean slate (schema already exists)
+    """
+    Heavy end-to-end test using full `.csv` sample data.
+    """
+    # clean slate testing ground (because schema already exists)
     conn.execute(
         "TRUNCATE reject_rows, stg_retail_transactions, stg_customers, ingest_runs RESTART IDENTITY CASCADE;"
     )

@@ -28,7 +28,7 @@ def main(argv: list[str] | None = None) -> int:
     db_sub = db.add_subparsers(dest="db_cmd", required=True)
 
     db_init_p = db_sub.add_parser("init", help="Initialize DB schema from an SQL file.")
-    db_init_p.add_argument("--sql", default="sql/000_init.sql", help="Path to schema SQL file.")
+    db_init_p.add_argument("--sql", default="sql", help="Path to schema SQL file OR a directory of `.sql` files.")
 
     args = p.parse_args(argv)
 
