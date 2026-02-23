@@ -51,7 +51,7 @@ def _run_sql_file(conn: psycopg.Connection, sql_path: Path) -> None:
     sql = sql_path.read_text(encoding="utf-8")
 
     # psycopg can execute multi-statement scripts via `execute` with `conn.execute(sql)`
-    # BUT safest is to split on semicolons, but only if also surfacing failing statements.
+    # BUT safest is to split it on semicolons, but only if also surfacing failing statements.
     statements = [s.strip() for s in sql.split(";") if s.strip()]
 
     with conn.cursor() as cur:
@@ -138,12 +138,16 @@ def wait_for_db(dsn: str, repo_root: Path) -> None:
 def conn(wait_for_db: None, dsn: str, repo_root: Path) -> Iterator[psycopg.Connection]:
     """One transaction per test, commit on success, rollback on failure. Return a `psycopg` connection."""
     with psycopg.connect(dsn) as c:
-        # initialize the schema only once
+
+        # initialize the schema ONLY once per test session
         with c.cursor() as cur:
-            cur.execute(DROP_ALL)   # for now only, avoids 'IF NOT EXISTS' schema drift. avoid once schema is solid
+            cur.execute(DROP_ALL)   # for now only, stops 'IF NOT EXISTS' schema drift. reconsider once schema is finished
         c.commit()
+        # explictly ordered running of sql inits.
         _run_sql_file(c, repo_root / "sql" / "000_init.sql")
-        yield c
+        _run_sql_file(c, repo_root / "sql" / "010_views.sql")
+
+        yield c     # the DB connection
 
 
 

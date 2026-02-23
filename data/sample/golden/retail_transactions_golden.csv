@@ -1,0 +1,6 @@
+date,week,sku,product_category,gender,marketplace,fulfillment,color,size,list_price,discount_pct,promo_type,ad_spend,impressions,clicks,cvr,units_sold,revenue,rating,reviews,competitor_price_index,stock_on_hand,stockout_flag,holiday_flag
+2026-01-01,1,SKU1,Apparel,Men,Amazon,FBA,Black,M,10.00,0.00,Coupon,0.00,10,1,0.10,2,10.00,4.00,10,1.00,100,0,0
+2026-01-01,1,SKU2,Apparel,Men,Amazon,FBA,Black,M,10.00,0.00,Coupon,0.00,10,1,0.10,0,0.00,4.00,10,1.00,100,0,0
+2026-01-01,1,SKU3,Apparel,Men,Amazon,FBA,Black,M,10.00,0.00,Coupon,0.00,10,1,0.10,1,-5.00,4.00,10,1.00,100,0,0
+2026-01-02,1,SKU4,Apparel,Men,Amazon,FBA,Black,M,10.00,0.00,Coupon,0.00,10,1,0.10,3,12.50,4.00,10,1.00,100,0,0
+2026-01-02,1,SKU5,Apparel,Men,Amazon,FBA,Black,M,10.00,0.00,Coupon,0.00,10,1,0.10,1,7.50,4.00,10,1.00,100,0,0
