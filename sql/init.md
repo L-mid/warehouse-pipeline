@@ -24,3 +24,8 @@ Python parsers will produce two streams:
 - if valid: insert into stg_* with run_id
 - if invalid: insert into reject_rows with run_id
 
+
+
+docker compose exec -T db psql -U postgres -d warehouse -c  "SELECT run_id, started_at, table_name, input_path, status
+ FROM ingest_runs
+ WHERE run_id = '928321c0-28d8-4546-938b-720d1d50fffd';"

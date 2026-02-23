@@ -45,7 +45,7 @@ DROP TABLE IF EXISTS
   stg_customers,
   ingest_runs
 CASCADE;
-"""
+""" 
 
 def _run_sql_file(conn: psycopg.Connection, sql_path: Path) -> None:
     sql = sql_path.read_text(encoding="utf-8")

@@ -22,7 +22,8 @@ demo: up
 
 
 release:
-	@test -n "$(VERSION)" || (echo "Usage: make release VERSION=v0.1.0" && exit 2)
+	@$(PY) -c "import sys; v=sys.argv[1]; \
+print('Usage: make release VERSION=v0.1.0') or sys.exit(2) if not v else None" "$(VERSION)"
 	$(MAKE) demo
 	$(PY) scripts/release.py --version "$(VERSION)"
 	git add pyproject.toml CHANGELOG.md
