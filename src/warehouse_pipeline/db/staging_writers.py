@@ -11,10 +11,22 @@ from psycopg.types.json import Jsonb
 
 @dataclass(frozen=True)
 class TableWriteSpec:
-    """Expected staging table schema for inserting parsed rows."""
+    """Whitelisted staging-table contract used for safe SQL generation.
+
+    Notes:
+    - `columns` excludes `run_id` and `created_at` (`run_id` is injected, `created_at` has a DB default).
+    - `key_cols` are the per-run key columns (excluding `run_id`). They match this staging PK shape:
+    `PRIMARY KEY (run_id, *key_cols)`.
+    """
     table_name: str
-    # excludes `run_id` and `created_at` (`run_id` is injected and `created_at` has DB default)
     columns: tuple[str, ...]
+    key_cols: tuple[str, ...]
+
+    @property
+    def work_table_name(self) -> str:
+        # here, temp/work table name is derived from the whitelisted staging `table_name` only. 
+        return f"_work_{self.table_name}"
+
 
 
 # wrap all staging specs for data together.
@@ -36,6 +48,7 @@ TABLE_SPECS: dict[str, TableWriteSpec] = {
             "subscription_date",
             "website",
         ),
+        key_cols=("customer_id",),
     ),
     # `retail_transactions.csv`
     "stg_retail_transactions": TableWriteSpec(
@@ -67,6 +80,7 @@ TABLE_SPECS: dict[str, TableWriteSpec] = {
             "stockout_flag",
             "holiday_flag",
         ),
+        key_cols=("source_row",),
     ),
     # `orders.csv`
     "stg_orders": TableWriteSpec(
@@ -79,7 +93,8 @@ TABLE_SPECS: dict[str, TableWriteSpec] = {
             "status",
             "total_usd",
         ),
-    ),
+        key_cols=("order_id",),
+    ), 
     # `order_items.csv`
     "stg_order_items": TableWriteSpec(
         table_name="stg_order_items",
@@ -91,6 +106,7 @@ TABLE_SPECS: dict[str, TableWriteSpec] = {
             "unit_price_usd",
             "discount_usd",
         ),
+        key_cols=("order_id", "line_id"),
     ),
 }
 
@@ -98,7 +114,7 @@ TABLE_SPECS: dict[str, TableWriteSpec] = {
 _JSONB_COLS = {"items"}
 
 
-def _adapt(col: str, value: Any) -> Any:
+def adapt_staging_value(col: str, value: Any) -> Any:
     """Adapt python values to DB types (e.g., `jsonb`)."""
     if col in _JSONB_COLS and value is not None:
         return Jsonb(value)
@@ -114,8 +130,9 @@ def insert_staging_rows(
     rows: Sequence[Mapping[str, Any]],
 ) -> None:
     """
-    Insert parsed rows into given a `table_name` and `run_id`. 
+    Inserts parsed rows into given a staging table. 
     
+    Legacy: Used by simpler flows.
     Any given `rows` will then be inserted into the appropriate staging table.
 
     Parsed mapping keys should already match staging column names at this step.
@@ -137,7 +154,7 @@ def insert_staging_rows(
     for r in rows:
         tup: list[Any] = [run_id]
         for c in spec.columns:
-            tup.append(_adapt(c, r.get(c)))
+            tup.append(adapt_staging_value(c, r.get(c)))
         params.append(tuple(tup))
     
     """

@@ -8,14 +8,7 @@ from uuid import UUID
 from psycopg import Connection, sql
 
 from warehouse_pipeline.db.dq_results import DQMetricRow, delete_dq_results, insert_dq_results
-
-_ALLOWED_TABLES: dict[str, dict[str, str]] = {
-    # the "uniqueness of key" within a run uses this key column:
-    "stg_customers":            {"key_cols": ["customer_id"]},
-    "stg_retail_transactions":  {"key_cols": ["source_row"]},
-    "stg_orders":               {"key_cols": ["order_id"]},
-    "stg_order_items":          {"key_cols": ["order_id", "line_id"]},
-}
+from warehouse_pipeline.db.staging_writers import TABLE_SPECS
 
 
 _Q6 = Decimal("0.000000")  # this one is align with numeric(18,6), for higher precison.
@@ -84,7 +77,8 @@ def _check_uniqueness_of_key(conn: Connection, *, run_id: UUID, table_name: str)
     
     Yields a metric row.
     """
-    key_cols: list[str] = list(_ALLOWED_TABLES[table_name]["key_cols"])
+    spec = TABLE_SPECS[table_name]
+    key_cols = list(spec.key_cols)
     key_label = "+".join(key_cols)
 
     k_select = sql.SQL(", ").join(sql.Identifier(c) for c in key_cols)
@@ -123,7 +117,7 @@ def _check_uniqueness_of_key(conn: Connection, *, run_id: UUID, table_name: str)
 
 def _check_null_rate_required(conn: Connection, *, run_id: UUID, table_name: str) -> Iterable[DQMetricRow]:
     """
-    Check null rates are as required/expected. 
+    Check null rates are as required/expected for NOT NULL columns.. 
     Yields metrics rows for `null_count` and `null_rate`.
     """
     total = _count_total_rows(conn, table_name=table_name, run_id=run_id)
@@ -165,7 +159,7 @@ def _check_null_rate_required(conn: Connection, *, run_id: UUID, table_name: str
 
 def _check_invalid_type_counts(conn: Connection, *, run_id: UUID, table_name: str) -> Iterable[DQMetricRow]:
     """
-    Checks `reject_rows` grouped by `reason_code` for the same run/table.
+    Checks `reject_rows` is grouped by `reason_code` for the same run/table.
 
     Yields:
     - `reject_rows.total`
@@ -240,7 +234,7 @@ def run_dq(conn: Connection, *, run_id: UUID, table_name: str) -> int:
 
     Returns: `inserted` (an `int` count of all inserted rows).
     """
-    if table_name not in _ALLOWED_TABLES:
+    if table_name not in TABLE_SPECS:
         raise ValueError(f"unsupported table_name for dq: {table_name}")
 
     _ensure_run_succeeded(conn, run_id=run_id, table_name=table_name)

@@ -92,6 +92,7 @@ def test_load_end_to_end_customers_and_retail_transactions(conn, repo_root) -> N
     assert reject_customers_ct == customers_summary.rejected
     assert stg_customers_ct > 0
     assert dq_customers_ct > 0
+    assert conn.execute("SELECT to_regclass('pg_temp._work_stg_customers') IS NOT NULL").fetchone()[0]
 
     ## -- retail_transactions assertions 
     stg_retail_transactions_ct = conn.execute(
@@ -112,6 +113,7 @@ def test_load_end_to_end_customers_and_retail_transactions(conn, repo_root) -> N
     assert reject_retail_transactions_ct == retail_transactions_summary.rejected
     assert stg_retail_transactions_ct > 0
     assert dq_retail_ct > 0
+    assert conn.execute("SELECT to_regclass('pg_temp._work_stg_retail_transactions') IS NOT NULL").fetchone()[0]
 
 
 
@@ -177,6 +179,12 @@ def test_load_end_to_end_orders_and_order_items(conn, repo_root) -> None:
         (items_summary.run_id, items_summary.table_name),
     ).fetchone()[0]
 
+    # temp tables for them existed
+    assert conn.execute("SELECT to_regclass('pg_temp._work_stg_orders') IS NOT NULL").fetchone()[0]
+    assert conn.execute("SELECT to_regclass('pg_temp._work_stg_order_items') IS NOT NULL").fetchone()[0]
+
+
+    # asserts for expected
     assert orders_summary.total == orders_summary.loaded + orders_summary.rejected
     assert items_summary.total == items_summary.loaded + items_summary.rejected
 
@@ -192,5 +200,5 @@ def test_load_end_to_end_orders_and_order_items(conn, repo_root) -> None:
     assert dq_orders_ct > 0
     assert dq_items_ct > 0
 
-    # since samples are "messy on purpose", make sure we actually exercised rejects:
+    # make sure actually exercised rejects:
     assert (rej_orders_ct + rej_items_ct) > 0

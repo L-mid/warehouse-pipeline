@@ -52,6 +52,11 @@ make demo
 pipeline load --input data/sample/customers-1000.csv --table stg_customers
 # and then:
 pipeline load --input data/sample/retail_transactions.csv --table stg_retail_transactions
+# and then:
+pipeline load --input data/sample/orders.csv --table stg_orders
+# and then: 
+pipeline load --input data/sample/order_items.csv --table stg_order_items
+    
 ```
 Upon completion, a short printed results summary will display in the terminal for the data that was input.
 
