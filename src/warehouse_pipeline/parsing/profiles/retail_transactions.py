@@ -19,34 +19,39 @@ from warehouse_pipeline.parsing.types import RejectRow
 def canonicalize_retail_transaction_row(raw: Mapping[str, Any]) -> dict[str, Any]:
     """
     Canonicalization/derivation step for `retail_transactions.csv`.
+    - None
 
-    Minimal for now: keys are already canonical.
+    Input is expected to already be transformed into canonical keys via `adapt_row` aliases.
+    Output keys should align with `_CUSTOMERS_KNOWN`.
     """
+
+    canon: dict[str, Any] = dict(raw)       # canonicalization step
+
     return {
-        "date": raw.get("date"),
-        "week": raw.get("week"),
-        "sku": raw.get("sku"),
-        "product_category": raw.get("product_category"),
-        "gender": raw.get("gender"),
-        "marketplace": raw.get("marketplace"),
-        "fulfillment": raw.get("fulfillment"),
-        "color": raw.get("color"),
-        "size": raw.get("size"),
-        "list_price": raw.get("list_price"),
-        "discount_pct": raw.get("discount_pct"),
-        "promo_type": raw.get("promo_type"),
-        "ad_spend": raw.get("ad_spend"),
-        "impressions": raw.get("impressions"),
-        "clicks": raw.get("clicks"),
-        "cvr": raw.get("cvr"),
-        "units_sold": raw.get("units_sold"),
-        "revenue": raw.get("revenue"),
-        "rating": raw.get("rating"),
-        "reviews": raw.get("reviews"),
-        "competitor_price_index": raw.get("competitor_price_index"),
-        "stock_on_hand": raw.get("stock_on_hand"),
-        "stockout_flag": raw.get("stockout_flag"),
-        "holiday_flag": raw.get("holiday_flag"),
+        "date": canon.get("date"),
+        "week": canon.get("week"),
+        "sku": canon.get("sku"),
+        "product_category": canon.get("product_category"),
+        "gender": canon.get("gender"),
+        "marketplace": canon.get("marketplace"),
+        "fulfillment": canon.get("fulfillment"),
+        "color": canon.get("color"),
+        "size": canon.get("size"),
+        "list_price": canon.get("list_price"),
+        "discount_pct": canon.get("discount_pct"),
+        "promo_type": canon.get("promo_type"),
+        "ad_spend": canon.get("ad_spend"),
+        "impressions": canon.get("impressions"),
+        "clicks": canon.get("clicks"),
+        "cvr": canon.get("cvr"),
+        "units_sold": canon.get("units_sold"),
+        "revenue": canon.get("revenue"),
+        "rating": canon.get("rating"),
+        "reviews": canon.get("reviews"),
+        "competitor_price_index": canon.get("competitor_price_index"),
+        "stock_on_hand": canon.get("stock_on_hand"),
+        "stockout_flag": canon.get("stockout_flag"),
+        "holiday_flag": canon.get("holiday_flag"),
     }
 
 # Allowed input keys, how they map to canonical keys
@@ -121,7 +126,7 @@ retail_transactions_parser = RowParser(
 
 
 def parse_retail_transaction_row(raw: Mapping[str, Any], *, source_row: int) -> object:
-    """Parse a single order's row."""
+    """Parse a single retail transactions's row."""
     adapted = adapt_row(
         raw,
         aliases=_RETAIL_INPUT_ALIASES,
@@ -152,6 +157,7 @@ class FunctionRowParser:
     fn: Any  # must be callable
 
     def parse(self, raw: Mapping[str, Any], *, source_row: int) -> object:
+        """Return the provided parser's outputs."""
         return self.fn(raw, source_row=source_row)
 
 # import

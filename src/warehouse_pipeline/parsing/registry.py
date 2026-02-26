@@ -59,8 +59,18 @@ def get_table_spec(table_name: str) -> TableSpec:
 
     if table_name == "stg_retail_transactions":
         from .profiles.retail_transactions import RETAIL_TRANSACTIONS_PARSER  
-        return TableSpec(table_name="stg_retail_trasactions", input_format="csv", parser=RETAIL_TRANSACTIONS_PARSER)
+        return TableSpec(table_name="stg_retail_transactions", input_format="csv", parser=RETAIL_TRANSACTIONS_PARSER)
+    
+    if table_name == "stg_orders":
+        from .profiles.orders import ORDERS_PARSER
+        return TableSpec(table_name="stg_orders", input_format="csv", parser=ORDERS_PARSER)
+
+    if table_name == "stg_order_items":
+        from .profiles.order_items import ORDER_ITEMS_PARSER
+        return TableSpec(table_name="stg_order_items", input_format="csv", parser=ORDER_ITEMS_PARSER)
 
     raise ValueError(f"Unknown table_name: {table_name}")
+
+
 
 

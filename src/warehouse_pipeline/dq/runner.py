@@ -8,12 +8,7 @@ from uuid import UUID
 from psycopg import Connection, sql
 
 from warehouse_pipeline.db.dq_results import DQMetricRow, delete_dq_results, insert_dq_results
-
-_ALLOWED_TABLES: dict[str, dict[str, str]] = {
-    # the "uniqueness of key" within a run uses this key column:
-    "stg_customers": {"key_col": "customer_id"},
-    "stg_retail_transactions": {"key_col": "source_row"},
-}
+from warehouse_pipeline.db.staging_writers import TABLE_SPECS
 
 
 _Q6 = Decimal("0.000000")  # this one is align with numeric(18,6), for higher precison.
@@ -77,8 +72,16 @@ def _count_total_rows(conn: Connection, *, table_name: str, run_id: UUID) -> int
 
 
 def _check_uniqueness_of_key(conn: Connection, *, run_id: UUID, table_name: str) -> Iterable[DQMetricRow]:
-    """Ensure each table's keys are all unique. Yields a metric row."""
-    key_col = _ALLOWED_TABLES[table_name]["key_col"]
+    """
+    Ensure each table's keys are all unique. Supports composite keys. 
+    
+    Yields a metric row.
+    """
+    spec = TABLE_SPECS[table_name]
+    key_cols = list(spec.key_cols)
+    key_label = "+".join(key_cols)
+
+    k_select = sql.SQL(", ").join(sql.Identifier(c) for c in key_cols)
 
     # Counts how many keys have duplicates (COUNT(*) > 1) within the run.
     q = sql.SQL(
@@ -91,7 +94,7 @@ def _check_uniqueness_of_key(conn: Connection, *, run_id: UUID, table_name: str)
           HAVING COUNT(*) > 1
         ) d
         """
-    ).format(t=sql.Identifier(table_name), k=sql.Identifier(key_col))
+    ).format(t=sql.Identifier(table_name), k=k_select)
 
     dup_keys = int(conn.execute(q, (run_id,)).fetchone()[0])
 
@@ -103,10 +106,10 @@ def _check_uniqueness_of_key(conn: Connection, *, run_id: UUID, table_name: str)
         run_id=run_id,
         table_name=table_name,
         check_name="uniqueness_of_key",         
-        metric_name=f"{key_col}.duplicate_keys",
+        metric_name=f"{key_label}.duplicate_keys",
         metric_value=_q6(Decimal(dup_keys)),
         passed=passed,
-        details={"key_col": key_col, "duplicate_keys": dup_keys},
+         details={"key_cols": key_cols, "duplicate_keys": dup_keys},
     )
 
 
@@ -114,7 +117,7 @@ def _check_uniqueness_of_key(conn: Connection, *, run_id: UUID, table_name: str)
 
 def _check_null_rate_required(conn: Connection, *, run_id: UUID, table_name: str) -> Iterable[DQMetricRow]:
     """
-    Check null rates are as required/expected. 
+    Check null rates are as required/expected for NOT NULL columns.. 
     Yields metrics rows for `null_count` and `null_rate`.
     """
     total = _count_total_rows(conn, table_name=table_name, run_id=run_id)
@@ -156,7 +159,7 @@ def _check_null_rate_required(conn: Connection, *, run_id: UUID, table_name: str
 
 def _check_invalid_type_counts(conn: Connection, *, run_id: UUID, table_name: str) -> Iterable[DQMetricRow]:
     """
-    Checks `reject_rows` grouped by `reason_code` for the same run/table.
+    Checks `reject_rows` is grouped by `reason_code` for the same run/table.
 
     Yields:
     - `reject_rows.total`
@@ -231,7 +234,7 @@ def run_dq(conn: Connection, *, run_id: UUID, table_name: str) -> int:
 
     Returns: `inserted` (an `int` count of all inserted rows).
     """
-    if table_name not in _ALLOWED_TABLES:
+    if table_name not in TABLE_SPECS:
         raise ValueError(f"unsupported table_name for dq: {table_name}")
 
     _ensure_run_succeeded(conn, run_id=run_id, table_name=table_name)

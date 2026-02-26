@@ -31,6 +31,8 @@ TRUNCATE_ALL = """
 TRUNCATE TABLE
   dq_results,
   reject_rows,
+  stg_order_items,
+  stg_orders,
   stg_retail_transactions,
   stg_customers,
   ingest_runs
@@ -41,6 +43,8 @@ DROP_ALL = """
 DROP TABLE IF EXISTS
   dq_results,
   reject_rows,
+  stg_order_items,
+  stg_orders,
   stg_retail_transactions,
   stg_customers,
   ingest_runs
@@ -55,11 +59,15 @@ def _run_sql_file(conn: psycopg.Connection, sql_path: Path) -> None:
     statements = [s.strip() for s in sql.split(";") if s.strip()]
 
     with conn.cursor() as cur:
-        for stmt in statements:
+        for i, stmt in enumerate(statements, 1):
             try:
                 cur.execute(stmt)
             except Exception as e:
-                raise RuntimeError(f"DB init failed on statement:\n{stmt}\n") from e
+                raise RuntimeError(
+                    f"DB init failed in {sql_path} on statement #{i}\n"
+                    f"Postgres raised with: {e}\n"
+                    f"--- statement ---\n{stmt}\n--- end ---\n"
+                ) from e
     conn.commit()
 
 

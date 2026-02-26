@@ -83,6 +83,53 @@ CREATE INDEX IF NOT EXISTS stg_retail_transactions_sku_idx
 CREATE INDEX IF NOT EXISTS stg_retail_transactions_run_idx 
   ON stg_retail_transactions (run_id);
 
+
+-- stg_orders (typed columns, staging + run_id)
+-- grain: one row per order (per run), keyed by (run_id, order_id).
+CREATE TABLE IF NOT EXISTS stg_orders (
+  run_id      uuid NOT NULL REFERENCES ingest_runs(run_id) ON DELETE CASCADE,
+  order_id    text NOT NULL,
+  customer_id text NOT NULL,
+  order_ts    timestamptz NOT NULL,
+  country     text NOT NULL,
+  status      text NOT NULL,              -- e.g: status in paid/refunded/pending
+  total_usd   numeric(12,2) NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (run_id, order_id)
+);
+
+CREATE INDEX IF NOT EXISTS stg_orders_run_idx
+  ON stg_orders (run_id);
+
+CREATE INDEX IF NOT EXISTS stg_orders_customer_idx
+  ON stg_orders (customer_id);
+
+CREATE INDEX IF NOT EXISTS stg_orders_order_ts_idx
+  ON stg_orders (order_ts);
+
+
+-- stg_order_items (typed columns, staging + run_id)
+-- grain: one row per order line item (per run), keyed by (run_id, order_id, line_id).
+CREATE TABLE IF NOT EXISTS stg_order_items (
+  run_id          uuid NOT NULL REFERENCES ingest_runs(run_id) ON DELETE CASCADE,
+  order_id        text NOT NULL,
+  line_id         integer NOT NULL,
+  sku             text NOT NULL,
+  qty             integer NOT NULL,
+  unit_price_usd  numeric(12,2) NOT NULL,
+  discount_usd    numeric(12,2) NOT NULL DEFAULT 0,   -- Default is 0 (not null).
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (run_id, order_id, line_id)
+);
+
+CREATE INDEX IF NOT EXISTS stg_order_items_run_idx
+  ON stg_order_items (run_id);
+
+CREATE INDEX IF NOT EXISTS stg_order_items_order_idx
+  ON stg_order_items (order_id);
+
+
+
  
 -- reject_rows
 CREATE TABLE IF NOT EXISTS reject_rows (

@@ -9,7 +9,7 @@ from psycopg.types.json import Jsonb
 
 
  
-
+ 
 @dataclass(frozen=True)
 class RejectInsert:
     """`reject_rows` table's expected data schema for inserting rejected rows."""

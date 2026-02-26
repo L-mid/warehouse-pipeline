@@ -14,7 +14,7 @@ def adapt_row(      # validate row
     reject_unknown_input_fields: bool = True,
 ) -> dict[str, Any] | RejectRow:
     """
-    Analyze `raw` row for unknown keys.
+    Analyze a `raw` row for unknown keys.
 
     maps raw input keys to provided `aliases` keys.
     If `reject_unknown_input_fields` is `True`: 

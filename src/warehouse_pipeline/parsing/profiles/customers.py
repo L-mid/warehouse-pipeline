@@ -27,6 +27,7 @@ def _derive_full_name(canon: dict[str, Any]) -> dict[str, Any]:
 def canonicalize_customer_row(raw: Mapping[str, Any]) -> dict[str, Any]:
     """
     Canonicalization/derivation step for customer-shaped data.
+    - `full_name` field is derived from first and last name if not provied.
     
     Input is expected to already be transformed into canonical keys via `adapt_row` aliases.
     Output keys should align with `_CUSTOMERS_KNOWN`.
@@ -83,20 +84,8 @@ _CUSTOMERS_INPUT_ALIASES: dict[str, str] = {
 }
 
 # all known expected fields for `customers-1000.csv`
-_CUSTOMERS_KNOWN = {
-    "customer_id",
-    "first_name",
-    "last_name",
-    "full_name",
-    "company",
-    "city",
-    "country",
-    "phone_1",
-    "phone_2",
-    "email",
-    "subscription_date",
-    "website",
-}
+_CUSTOMERS_KNOWN = set(_CUSTOMERS_INPUT_ALIASES.values())
+
 
 customers_parser = RowParser(
     known_fields=_CUSTOMERS_KNOWN,
@@ -150,6 +139,7 @@ class FunctionRowParser:
     fn: Any  # must be callable
 
     def parse(self, raw: Mapping[str, Any], *, source_row: int) -> object:
+        """Return the provided parser's outputs."""
         return self.fn(raw, source_row=source_row)
 
 # import
