@@ -8,15 +8,17 @@ def test_tables_exist(conn: psycopg.Connection) -> None:
         cur.execute(
             """
             SELECT
-              to_regclass('public.ingest_runs')             IS NOT NULL AS ingest_runs_ok,
-              to_regclass('public.stg_customers')           IS NOT NULL AS stg_customers_ok,
-              to_regclass('public.stg_retail_transactions') IS NOT NULL AS stg_retail_transactions_ok,
-              to_regclass('public.reject_rows')             IS NOT NULL AS reject_rows_ok,
-              to_regclass('public.dq_results')              IS NOT NULL AS dq_results_ok
+                to_regclass('public.ingest_runs')             IS NOT NULL AS ingest_runs_ok,
+                to_regclass('public.stg_customers')           IS NOT NULL AS stg_customers_ok,
+                to_regclass('public.stg_retail_transactions') IS NOT NULL AS stg_retail_transactions_ok,
+                to_regclass('public.stg_orders')              IS NOT NULL AS stg_orders_ok,
+                to_regclass('public.stg_order_items')         IS NOT NULL AS stg_order_items_ok,
+                to_regclass('public.reject_rows')             IS NOT NULL AS reject_rows_ok,
+                to_regclass('public.dq_results')              IS NOT NULL AS dq_results_ok
             """
         )
-        ingest_ok, cust_ok, retail_transactions_ok, reject_ok, dq_ok = cur.fetchone()
-    assert ingest_ok and cust_ok and retail_transactions_ok and reject_ok and dq_ok
+        ingest_ok, cust_ok, retail_ok, orders_ok, items_ok, reject_ok, dq_ok = cur.fetchone()
+    assert ingest_ok and cust_ok and retail_ok and orders_ok and items_ok and reject_ok and dq_ok
 
  
 def test_ingest_runs_status_check_constraint(conn: psycopg.Connection) -> None:

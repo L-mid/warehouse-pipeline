@@ -11,8 +11,10 @@ from warehouse_pipeline.db.dq_results import DQMetricRow, delete_dq_results, ins
 
 _ALLOWED_TABLES: dict[str, dict[str, str]] = {
     # the "uniqueness of key" within a run uses this key column:
-    "stg_customers": {"key_col": "customer_id"},
-    "stg_retail_transactions": {"key_col": "source_row"},
+    "stg_customers":            {"key_cols": ["customer_id"]},
+    "stg_retail_transactions":  {"key_cols": ["source_row"]},
+    "stg_orders":               {"key_cols": ["order_id"]},
+    "stg_order_items":          {"key_cols": ["order_id", "line_id"]},
 }
 
 
@@ -77,8 +79,15 @@ def _count_total_rows(conn: Connection, *, table_name: str, run_id: UUID) -> int
 
 
 def _check_uniqueness_of_key(conn: Connection, *, run_id: UUID, table_name: str) -> Iterable[DQMetricRow]:
-    """Ensure each table's keys are all unique. Yields a metric row."""
-    key_col = _ALLOWED_TABLES[table_name]["key_col"]
+    """
+    Ensure each table's keys are all unique. Supports composite keys. 
+    
+    Yields a metric row.
+    """
+    key_cols: list[str] = list(_ALLOWED_TABLES[table_name]["key_cols"])
+    key_label = "+".join(key_cols)
+
+    k_select = sql.SQL(", ").join(sql.Identifier(c) for c in key_cols)
 
     # Counts how many keys have duplicates (COUNT(*) > 1) within the run.
     q = sql.SQL(
@@ -91,7 +100,7 @@ def _check_uniqueness_of_key(conn: Connection, *, run_id: UUID, table_name: str)
           HAVING COUNT(*) > 1
         ) d
         """
-    ).format(t=sql.Identifier(table_name), k=sql.Identifier(key_col))
+    ).format(t=sql.Identifier(table_name), k=k_select)
 
     dup_keys = int(conn.execute(q, (run_id,)).fetchone()[0])
 
@@ -103,10 +112,10 @@ def _check_uniqueness_of_key(conn: Connection, *, run_id: UUID, table_name: str)
         run_id=run_id,
         table_name=table_name,
         check_name="uniqueness_of_key",         
-        metric_name=f"{key_col}.duplicate_keys",
+        metric_name=f"{key_label}.duplicate_keys",
         metric_value=_q6(Decimal(dup_keys)),
         passed=passed,
-        details={"key_col": key_col, "duplicate_keys": dup_keys},
+         details={"key_cols": key_cols, "duplicate_keys": dup_keys},
     )
 
 

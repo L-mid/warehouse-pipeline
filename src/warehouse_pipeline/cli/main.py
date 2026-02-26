@@ -29,18 +29,24 @@ def main(argv: list[str] | None = None) -> int:
     #### For retail transactions sample data:
     - `pipeline load --input data/sample/retail_transactions.csv --table stg_retail_transactions`
 
+    #### For orders sample data:
+    - `pipeline load --input data/sample/orders.csv --table stg_orders`
+
+    #### For order items sample data:
+    - `pipeline load --input data/sample/order_items.csv --table stg_order_items`
+    
 
     ## db:     
     Database controlling commands, includes DB initalization functionality. 
     - `init` is the command to reinitalize the DB
-    - `--sql` is an optional pointer to which dir contains the SQL file(s) you want to use to re-initalize.
+    - `--sql` is an optional pointer to which dir contains the SQL file(s) you want to use to reinitalize.
     """
     p = argparse.ArgumentParser(prog="pipeline")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     load = sub.add_parser("load", help="Load a file into a staging table (with rejects).")
     load.add_argument("--input", required=True, help="Path to input file (CSV or JSONL).")
-    load.add_argument("--table", required=True, choices=["stg_customers", "stg_retail_transactions"])
+    load.add_argument("--table", required=True, choices=["stg_customers", "stg_retail_transactions", "stg_orders", "stg_order_items"]),
 
     db = sub.add_parser("db", help="Database utilities.")
     db_sub = db.add_subparsers(dest="db_cmd", required=True)

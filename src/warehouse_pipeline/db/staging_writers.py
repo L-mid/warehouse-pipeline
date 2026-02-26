@@ -19,6 +19,7 @@ class TableWriteSpec:
 
 # wrap all staging specs for data together.
 TABLE_SPECS: dict[str, TableWriteSpec] = {
+    # `customers-1000.csv`.
     "stg_customers": TableWriteSpec(
         table_name="stg_customers",
         columns=(
@@ -36,6 +37,7 @@ TABLE_SPECS: dict[str, TableWriteSpec] = {
             "website",
         ),
     ),
+    # `retail_transactions.csv`
     "stg_retail_transactions": TableWriteSpec(
         table_name="stg_retail_transactions",
         columns=(
@@ -64,6 +66,30 @@ TABLE_SPECS: dict[str, TableWriteSpec] = {
             "stock_on_hand",
             "stockout_flag",
             "holiday_flag",
+        ),
+    ),
+    # `orders.csv`
+    "stg_orders": TableWriteSpec(
+        table_name="stg_orders",
+        columns=(
+            "order_id",
+            "customer_id",
+            "order_ts",
+            "country",
+            "status",
+            "total_usd",
+        ),
+    ),
+    # `order_items.csv`
+    "stg_order_items": TableWriteSpec(
+        table_name="stg_order_items",
+        columns=(
+            "order_id",
+            "line_id",
+            "sku",
+            "qty",
+            "unit_price_usd",
+            "discount_usd",
         ),
     ),
 }
@@ -118,7 +144,7 @@ def insert_staging_rows(
     print("Query:", query, "\n")        # shows composed SQL
     if params: print("First row to be inserted:", params[0])    # shows the first row being inserted
     """
-    
+     
 
     if params:
         with conn.cursor() as cur:

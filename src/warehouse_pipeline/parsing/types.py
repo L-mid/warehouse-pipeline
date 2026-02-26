@@ -11,6 +11,7 @@ class RejectCode(str, Enum):
     invalid_int = "invalid_int"                 # also used for bool parsing errors
     invalid_numeric = "invalid_numeric"
     invalid_timestamp = "invalid_timestamp"     # also used for date parsing errors
+    duplicate_key = "duplicate_key"
     unknown_field = "unknown_field"
 
  

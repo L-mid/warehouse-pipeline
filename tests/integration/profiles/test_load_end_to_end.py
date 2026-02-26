@@ -112,3 +112,85 @@ def test_load_end_to_end_customers_and_retail_transactions(conn, repo_root) -> N
     assert reject_retail_transactions_ct == retail_transactions_summary.rejected
     assert stg_retail_transactions_ct > 0
     assert dq_retail_ct > 0
+
+
+
+
+def test_load_end_to_end_orders_and_order_items(conn, repo_root) -> None:
+    """Heavy end-to-end test using full `.csv` sample data, from `orders.csv` and `order_items.csv`."""
+    # clean slate testing ground (because schema already exists)
+    conn.execute(
+        "TRUNCATE reject_rows, dq_results, stg_order_items, stg_orders, ingest_runs RESTART IDENTITY CASCADE;"
+    )
+
+    # orders
+    orders_summary = load_file(
+        conn,
+        input_path=repo_root / "data" / "sample" / "orders.csv",
+        table_name="stg_orders",
+    )
+    run_dq(conn, run_id=orders_summary.run_id, table_name=orders_summary.table_name)
+
+    # order_items
+    items_summary = load_file(
+        conn,
+        input_path=repo_root / "data" / "sample" / "order_items.csv",
+        table_name="stg_order_items",
+    )
+    run_dq(conn, run_id=items_summary.run_id, table_name=items_summary.table_name)
+
+
+
+    # rows landed in stg_*
+    stg_orders_ct = conn.execute(
+        "SELECT COUNT(*) FROM stg_orders WHERE run_id = %s",
+        (orders_summary.run_id,),
+    ).fetchone()[0]
+    stg_items_ct = conn.execute(
+        "SELECT COUNT(*) FROM stg_order_items WHERE run_id = %s",
+        (items_summary.run_id,),
+    ).fetchone()[0]
+
+    # rejects landed in reject_rows
+    rej_orders_ct = conn.execute(
+        "SELECT COUNT(*) FROM reject_rows WHERE run_id = %s AND table_name = 'stg_orders'",
+        (orders_summary.run_id,),
+    ).fetchone()[0]
+    rej_items_ct = conn.execute(
+        "SELECT COUNT(*) FROM reject_rows WHERE run_id = %s AND table_name = 'stg_order_items'",
+        (items_summary.run_id,),
+    ).fetchone()[0]
+
+    # ingest_runs has both runs
+    runs_ct = conn.execute(
+        "SELECT COUNT(*) FROM ingest_runs WHERE run_id IN (%s, %s)",
+        (orders_summary.run_id, items_summary.run_id),
+    ).fetchone()[0]
+
+    # dq results exist for both
+    dq_orders_ct = conn.execute(
+        "SELECT COUNT(*) FROM dq_results WHERE run_id = %s AND table_name = %s",
+        (orders_summary.run_id, orders_summary.table_name),
+    ).fetchone()[0]
+    dq_items_ct = conn.execute(
+        "SELECT COUNT(*) FROM dq_results WHERE run_id = %s AND table_name = %s",
+        (items_summary.run_id, items_summary.table_name),
+    ).fetchone()[0]
+
+    assert orders_summary.total == orders_summary.loaded + orders_summary.rejected
+    assert items_summary.total == items_summary.loaded + items_summary.rejected
+
+    assert stg_orders_ct == orders_summary.loaded
+    assert stg_items_ct == items_summary.loaded
+
+    assert rej_orders_ct == orders_summary.rejected
+    assert rej_items_ct == items_summary.rejected
+
+    assert stg_orders_ct > 0
+    assert stg_items_ct > 0
+    assert runs_ct == 2
+    assert dq_orders_ct > 0
+    assert dq_items_ct > 0
+
+    # since samples are "messy on purpose", make sure we actually exercised rejects:
+    assert (rej_orders_ct + rej_items_ct) > 0

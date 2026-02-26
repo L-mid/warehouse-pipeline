@@ -2,9 +2,9 @@
 
 ## Unreleased
 ### Added
-- None
+- Sample data `orders.csv` and `order_items.csv` to data pipeline + tests.
 ### Fixed
-- Hangs on a faulty connection now time out and error cleanly
+- DB initalizing SQL statement riser now raises much more information on error
 
 ## v0.1.0 - 2026-02-23
 ### Added
