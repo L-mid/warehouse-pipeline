@@ -20,6 +20,9 @@ demo: up
 	$(PY) scripts/demo.py
 	$(PY) -m pytest -q
 
+warehouse:
+	pipeline warehouse build
+
 
 release:
 	@$(PY) -c "import sys; v=sys.argv[1]; \

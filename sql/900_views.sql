@@ -1,3 +1,5 @@
+-- Can be dependent on transformations so should occur last.
+
 -- Business outputs as SQL views. 
 -- each view reports the latest succeeded run for its sourced staging table.
 -- grain is by day
