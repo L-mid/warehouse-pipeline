@@ -19,7 +19,7 @@ def main(argv: list[str] | None = None) -> int:
     - `--input` as the path to the data, 
     - `--table` as its respective staging table
 
-    A results summary will print in the termial upon completion of a load.
+    A results summary will print in the terminal upon completion of a load.
 
     
     ### Example load usage:

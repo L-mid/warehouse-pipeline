@@ -212,7 +212,7 @@ def _work_insert_columns(spec: TableWriteSpec) -> tuple[str, ...]:
 
 
 def _duplicate_reason_detail_expr(spec: TableWriteSpec) -> sql.Composable:
-    """Build a safe SQL expression for `reject_rows.reason_detail` on duplicate keys."""
+    """Builds a safe SQL expression for `reject_rows.reason_detail` on duplicate keys."""
     parts: list[sql.Composable] = []
     # specially formatted return values in this case
     for c in spec.key_cols:
