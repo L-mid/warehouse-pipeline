@@ -5,9 +5,11 @@
 - Sample data `orders.csv` and `order_items.csv` to data pipeline + tests.
 - Per run temp/working table added: enables duplicate rejection using a 'first seen wins' acceptance method.
 - Working/temp table behavioural tests under `tests/unit/db`
+- `warehouse` cmd and a post staging data transformation pipeline.
 ### Fixed
 - DB initalizing SQL statement riser now raises much more information on error
 - Fields in DQ now derive from the same unified `TABLESPEC` as in the row parser.
+- init `sql` else parse single file bug parsing above iterator instead of provided file.
 
 ## v0.1.0 - 2026-02-23
 ### Added

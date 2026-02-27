@@ -29,6 +29,10 @@ def repo_root() -> Path:
 # for avoiding schema drift: re-init tables fresh each test run.
 TRUNCATE_ALL = """
 TRUNCATE TABLE
+  fact_order_items,
+  fact_orders,
+  dim_date,
+  dim_customer,
   dq_results,
   reject_rows,
   stg_order_items,
@@ -41,6 +45,10 @@ RESTART IDENTITY CASCADE;
 
 DROP_ALL = """
 DROP TABLE IF EXISTS
+  fact_order_items,
+  fact_orders,
+  dim_date,
+  dim_customer,
   dq_results,
   reject_rows,
   stg_order_items,
@@ -153,7 +161,11 @@ def conn(wait_for_db: None, dsn: str, repo_root: Path) -> Iterator[psycopg.Conne
         c.commit()
         # explictly ordered running of sql inits.
         _run_sql_file(c, repo_root / "sql" / "000_init.sql")
-        _run_sql_file(c, repo_root / "sql" / "010_views.sql")
+        _run_sql_file(c, repo_root / "sql" / "020_dim_customer.sql")
+        _run_sql_file(c, repo_root / "sql" / "021_dim_date.sql")
+        _run_sql_file(c, repo_root / "sql" / "022_fact_orders.sql")
+        _run_sql_file(c, repo_root / "sql" / "023_fact_order_items.sql")
+        _run_sql_file(c, repo_root / "sql" / "900_views.sql")
 
         yield c     # the DB connection
 

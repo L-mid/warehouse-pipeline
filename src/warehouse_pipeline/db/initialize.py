@@ -46,5 +46,5 @@ def db_init(*, sql_path: Path) -> None:
                 _run_sql_file(conn, p) 
         # just run one file
         else:
-            _run_sql_file(conn, p)
+            _run_sql_file(conn, sql_path)
     
