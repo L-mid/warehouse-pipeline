@@ -51,8 +51,6 @@ make demo
 # load up the sample data 
 pipeline load --input data/sample/customers-1000.csv --table stg_customers
 # and then:
-pipeline load --input data/sample/retail_transactions.csv --table stg_retail_transactions
-# and then:
 pipeline load --input data/sample/orders.csv --table stg_orders
 # and then: 
 pipeline load --input data/sample/order_items.csv --table stg_order_items
@@ -77,6 +75,25 @@ docker compose exec -T db psql -U postgres -d warehouse -c "SELECT table_name, r
 docker compose exec -T db psql -U postgres -d warehouse -c "SELECT table_name, check_name, metric_name, metric_value, passed FROM dq_results ORDER BY created_at DESC LIMIT 12;"
 ```
 
+### Queries off of transformed staged data:
+```bash
+# transform your now staged data into coherent fact tables:
+pipeline warehouse build --customers-run-id <run_id>    # <- use the `run_id` from your previous successful run here
+pipeline warehouse build --orders-run-id <run_id>
+pipeline warehouse build --order-items-run-id <run_id>
+
+
+# then view them:
+
+# revenue by day and country (grain by day)
+docker compose exec -T db psql -U postgres -d warehouse -f /docker-entrypoint-initdb.d/extras/010_revenue_by_day_country.sql
+
+# top products by start of the week.
+docker compose exec -T db psql -U postgres -d warehouse -f /docker-entrypoint-initdb.d/extras/020_top_products_per_week.sql
+
+# paid vs refunded orders vs total orders by country
+docker compose exec -T db psql -U postgres -d warehouse -f /docker-entrypoint-initdb.d/extras/030_paid_vs_refunded_counts.sql
+```
 
 
 ## Other useful commands: 
