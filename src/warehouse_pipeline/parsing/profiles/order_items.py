@@ -8,6 +8,7 @@ from warehouse_pipeline.parsing.primitives import (
     parse_int,
     parse_numeric_12_2,
     parse_required_text,
+    any_upper
 )
 from warehouse_pipeline.parsing.schema import FieldSpec, RowParser
 from warehouse_pipeline.parsing.types import RejectRow
@@ -65,10 +66,13 @@ _ORDER_ITEMS_KNOWN = set(_ORDER_ITEMS_INPUT_ALIASES.values())
 order_items_parser = RowParser(
     known_fields=_ORDER_ITEMS_KNOWN,    # catches bugs where canonicalization adds extra keys
     reject_unknown_fields=True, 
+    default_text_transform=None,
     fields=[
         FieldSpec("order_id", lambda r: r.get("order_id"), lambda v: parse_required_text(v, field="order_id"), True),
         FieldSpec("line_id", lambda r: r.get("line_id"), lambda v: parse_int(v, field="line_id"), True),
-        FieldSpec("sku", lambda r: r.get("sku"), lambda v: parse_required_text(v, field="sku"), True),
+
+        # sku casing overridden to upper
+        FieldSpec("sku", lambda r: r.get("sku"), lambda v: parse_required_text(v, field="sku"), True, transform=any_upper),
         FieldSpec("qty", lambda r: r.get("qty"), lambda v: parse_int(v, field="qty"), True),
         FieldSpec("unit_price_usd", lambda r: r.get("unit_price_usd"), lambda v: parse_numeric_12_2(v, field="unit_price_usd"), True),
         FieldSpec("discount_usd", lambda r: r.get("discount_usd"), lambda v: parse_numeric_12_2(v, field="discount_usd"), True),

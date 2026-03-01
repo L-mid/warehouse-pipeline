@@ -45,7 +45,17 @@ def main(argv: list[str] | None = None) -> int:
     - `--sql` is an optional pointer to which dir contains the SQL file(s) you want to use to reinitalize.
 
     ## warehouse
-    Build transformations using staged tables.
+    Transformations using staged tables.
+    - `wh_cmd`: commands that can control or transform staged data. (options: `build`)
+    
+    ### `build`: 
+    - transform staged data into fact tables.
+
+    #### Examples: 
+    - `pipeline warehouse build --customers-run-id <run_id>`
+    - `pipeline warehouse build --orders-run-id <run_id>`
+    - `pipeline warehouse build --order-items-run-id <run_id>`
+
     """
     p = argparse.ArgumentParser(prog="pipeline")
     sub = p.add_subparsers(dest="cmd", required=True)

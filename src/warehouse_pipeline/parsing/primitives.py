@@ -31,6 +31,30 @@ def normalize_cell(v: Any) -> Any:
     return v
 
 
+## -- casing for fields
+
+def text_lower(s: str) -> str:
+    """Lower casing transform for a value."""
+    return s.lower()
+def text_upper(s: str) -> str:
+    """Upper casing transform for a value."""
+    return s.upper()
+
+def any_upper(v: Any) -> Any:
+    """
+    Upper casing transform, only affects `str` values. 
+    Otherwise returns value unchanged.
+    """
+    return v.upper() if isinstance(v, str) else v
+
+def any_lower(v: Any) -> Any:
+    """
+    Lower casing transform, only affects `str` values. 
+    Otherwise returns value unchanged.
+    """
+    return v.lower() if isinstance(v, str) else v
+
+
 
 ## -- text / str fields
 
