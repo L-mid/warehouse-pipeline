@@ -13,7 +13,8 @@
 - 'init `sql` else parse single file' bug was parsing above iterator instead of provided file in `main.py`.
 - Fixed casing oversight where values could not be standardized to a specific casing, implementations to do so now exist in `RowParser` (default across all fields) and in `FieldSpec` (custom per value override). 
 - Fixed queries under `sql/extras` to new casing expectations.
-
+- Two more extra SQL queries under `sql/extras`, one to demonstrate distinct functionality and other for an incorrect vs correct fanout, fanout 
+emphasized (a test showing the fanout principle + a `fanout_trap.md`).
 
 ## v0.1.0 - 2026-02-23
 ### Added
