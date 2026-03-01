@@ -7,14 +7,15 @@
 - Working/temp table behavioural tests under `tests/unit/db`
 - `warehouse` cmd and a post staging data transformation pipeline.
 - New `.sql` views under `sql/extras` using tables created with the new transformation pipeline. Also added goldens tests (`integration/extras`) that assert exact rows for exact data to ensure correctness for this pipeline over updates.
+- Two more extra SQL queries under `sql/extras`, one to demonstrate distinct functionality and other for an incorrect vs correct fanout, fanout 
+emphasized (a test showing the fanout principle + a `fanout_trap.md`).
 ### Fixed
 - DB initalizing SQL statement riser now raises much more information on error
 - Fields in data quality checks now derive from the same unified `TABLESPEC` as in the row parser.
 - 'init `sql` else parse single file' bug was parsing above iterator instead of provided file in `main.py`.
 - Fixed casing oversight where values could not be standardized to a specific casing, implementations to do so now exist in `RowParser` (default across all fields) and in `FieldSpec` (custom per value override). 
 - Fixed queries under `sql/extras` to new casing expectations.
-- Two more extra SQL queries under `sql/extras`, one to demonstrate distinct functionality and other for an incorrect vs correct fanout, fanout 
-emphasized (a test showing the fanout principle + a `fanout_trap.md`).
+
 
 ## v0.1.0 - 2026-02-23
 ### Added
