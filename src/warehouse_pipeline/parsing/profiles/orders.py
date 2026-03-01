@@ -8,6 +8,8 @@ from warehouse_pipeline.parsing.primitives import (
     parse_numeric_12_2,
     parse_required_text,
     parse_timestamptz_iso,
+    text_lower,
+    any_upper
 )
 from warehouse_pipeline.parsing.schema import FieldSpec, RowParser
 from warehouse_pipeline.parsing.types import RejectRow
@@ -50,12 +52,15 @@ _ORDERS_KNOWN = set(_ORDERS_INPUT_ALIASES.values())
 
 orders_parser = RowParser(
     known_fields=_ORDERS_KNOWN,
-    reject_unknown_fields=True, # catches bugs where canonicalization adds extra keys
+    reject_unknown_fields=True,         # catches bugs where canonicalization adds extra keys
+    default_text_transform=text_lower,  # lower all string fields by default
     fields=[
         FieldSpec("order_id", lambda r: r.get("order_id"), lambda v: parse_required_text(v, field="order_id"), True),
         FieldSpec("customer_id", lambda r: r.get("customer_id"), lambda v: parse_required_text(v, field="customer_id"), True),
         FieldSpec("order_ts", lambda r: r.get("order_ts"), lambda v: parse_timestamptz_iso(v, field="order_ts"), True),
-        FieldSpec("country", lambda r: r.get("country"), lambda v: parse_required_text(v, field="country"), True),
+        
+        # country casing is overriden to upper
+        FieldSpec("country", lambda r: r.get("country"), lambda v: parse_required_text(v, field="country"), True, transform=any_upper),
         FieldSpec("status", lambda r: r.get("status"), lambda v: parse_required_text(v, field="status"), True),
         FieldSpec("total_usd", lambda r: r.get("total_usd"), lambda v: parse_numeric_12_2(v, field="total_usd"), True),
     ],

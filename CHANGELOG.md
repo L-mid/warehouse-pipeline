@@ -11,6 +11,9 @@
 - DB initalizing SQL statement riser now raises much more information on error
 - Fields in data quality checks now derive from the same unified `TABLESPEC` as in the row parser.
 - 'init `sql` else parse single file' bug was parsing above iterator instead of provided file in `main.py`.
+- Fixed casing oversight where values could not be standardized to a specific casing, implementations to do so now exist in `RowParser` (default across all fields) and in `FieldSpec` (custom per value override). 
+- Fixed queries under `sql/extras` to new casing expectations.
+
 
 ## v0.1.0 - 2026-02-23
 ### Added

@@ -4,7 +4,9 @@ from warehouse_pipeline.parsing.adapter import adapt_row
 from warehouse_pipeline.parsing.primitives import (
     parse_date_yyyy_mm_dd, 
     parse_optional_text, 
-    parse_required_text
+    parse_required_text,
+    any_lower,
+    any_upper
 )
 from warehouse_pipeline.parsing.schema import FieldSpec, RowParser
 from warehouse_pipeline.parsing.types import RejectRow
@@ -90,6 +92,7 @@ _CUSTOMERS_KNOWN = set(_CUSTOMERS_INPUT_ALIASES.values())
 customers_parser = RowParser(
     known_fields=_CUSTOMERS_KNOWN,
     reject_unknown_fields=True,     # catches bugs where canonicalization introduces extra keys
+    default_text_transform=None,
     fields=[
         FieldSpec("customer_id", lambda r: r.get("customer_id"), lambda v: parse_required_text(v, field="customer_id"), True),
 
@@ -99,12 +102,15 @@ customers_parser = RowParser(
 
         FieldSpec("company", lambda r: r.get("company"), parse_optional_text, False),
         FieldSpec("city", lambda r: r.get("city"), parse_optional_text, False),
-        FieldSpec("country", lambda r: r.get("country"), parse_optional_text, False),
+        
+        # country casing overridden to upper
+        FieldSpec("country", lambda r: r.get("country"), parse_optional_text, False, transform=any_upper),
 
         FieldSpec("phone_1", lambda r: r.get("phone_1"), parse_optional_text, False),
         FieldSpec("phone_2", lambda r: r.get("phone_2"), parse_optional_text, False),
 
-        FieldSpec("email", lambda r: r.get("email"), parse_optional_text, False),
+        # email casing overridden to lower
+        FieldSpec("email", lambda r: r.get("email"), parse_optional_text, False, transform=any_lower),
 
         FieldSpec("subscription_date", lambda r: r.get("subscription_date"), lambda v: parse_date_yyyy_mm_dd(v, field="subscription_date"), True),
 

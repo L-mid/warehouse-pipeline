@@ -11,6 +11,8 @@ from .types import ParsedRow, RejectCode, RejectRow
 # Parser is a list of list, value pairs.
 Getter = Callable[[Mapping[str, Any]], Any]
 Parser = Callable[[Any], Any]
+Transformer = Callable[[Any], Any]
+TextTransform = Callable[[str], str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,6 +22,7 @@ class FieldSpec:
     getter: Getter              # how to fetch (normalize) this field's value.
     parser: Parser              # how to parse this field's value.
     required: bool = True       # whether or not this field's value must exist.
+    transform: Transformer | None = None    # custom per field override
 
  
 @dataclass(frozen=True, slots=True)
@@ -39,6 +42,7 @@ class RowParser:
     fields: Sequence[FieldSpec]             # every field in this row in a `[]` to pull from.
     known_fields: set[str]                  # pre-registered fields expected to exist. 
     reject_unknown_fields: bool = True      # bool, reject any non pre-registered fields
+    default_text_transform: TextTransform | None = None     # per-parser default casing for fields
 
     def parse(self, raw_row: Mapping[str, Any], *, source_row: int, raw_payload: Any) -> ParsedRow | RejectRow:
         """
@@ -50,8 +54,8 @@ class RowParser:
         for k, v in raw_row.items():
             kk = str(k).strip()
             normalized[kk] = normalize_cell(v)
-
-        # 1st rejection reason: Unknown fields (if `True`) (debug canonicalizaion introducing bugs)
+  
+        ## -- 1st rejection reason: Unknown fields (if `True`) (debug canonicalizaion introducing bugs)
         if self.reject_unknown_fields:
             unknown = sorted(set(normalized.keys()) - self.known_fields)
             if unknown:
@@ -70,7 +74,7 @@ class RowParser:
                 raw_v = f.getter(normalized)           
                 raw_v = normalize_cell(raw_v)
 
-                # 2nd rejection reason: required field is `None`.
+                ## -- 2nd rejection reason: required field is `None`.
                 if raw_v is None:
                     # if required, reject. 
                     if f.required:
@@ -78,11 +82,20 @@ class RowParser:
                     # if optional, this field's value is genuinely `None`.
                     out[f.out_name] = None
                     continue
-                
-                # field's value passed filters and is now assigned.
+
+                # custiom casing per field logic
+                if f.transform is not None:
+                    # override per field
+                    raw_v = f.transform(raw_v)
+                elif self.default_text_transform is not None and isinstance(raw_v, str):
+                    # default
+                    raw_v = self.default_text_transform(raw_v)
+                              
+        
+                # field's value passed all filters and is now assigned.
                 out[f.out_name] = f.parser(raw_v)
  
-            # 3rd rejection reason: typing / formatting error.
+            ## -- 3rd rejection reason: typing or formatting error.
             except ParseError as e:
                 return RejectRow(
                     reason_code=e.code,
