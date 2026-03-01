@@ -16,7 +16,7 @@ TRANSFORMS = [
     "330_build_fact_order_items.sql",
 ]
 
-
+ 
 
 def latest_succeeded_run_id(conn: Connection, table_name: str) -> UUID:
     """Fetches the latest succeeded run_id for use in transforms."""

@@ -16,6 +16,16 @@ def _run_query_file(conn, path: Path):
     return conn.execute(sql).fetchall()
 
 
+def _run_scalar_file(conn, path: Path):
+    """Execute a `.sql` file expected to return a single scalar."""
+    sql = path.read_text(encoding="utf-8")
+    row = conn.execute(sql).fetchone()
+    assert row is not None, f"Expected 1 row from {path}, got none"
+    assert len(row) == 1, f"Expected 1 column from {path}, got {len(row)}"
+    return row[0]
+
+
+
 @pytest.fixture()
 def _built_warehouse(conn, repo_root):
     """
@@ -86,3 +96,57 @@ def test_extras_paid_vs_refunded_counts_golden(conn, repo_root, _built_warehouse
         ("GB", 3, 1, 4),
         ("US", 2, 0, 3),
     ]
+
+
+
+def test_extras_distinct_customers_with_purchases_golden(conn, repo_root, _built_warehouse):
+    """
+    Expected from `orders_golden.csv`:
+
+    paid orders:
+      1001 customer_id=c_001
+      1002 customer_id=c_002
+      1005 customer_id=c_004
+      1006 customer_id=c_005
+      1007 customer_id=c_006
+      1008 customer_id=c_007
+
+    with distinct paid customers = 6
+    """
+    q4_path = repo_root / "sql/extras/040_distinct_customers_with_purchases.sql"
+    paid_customers = _run_scalar_file(conn, q4_path)
+
+    assert paid_customers == 6
+
+
+
+def test_extras_fanout_trap_wrong_vs_right_golden(conn, repo_root, _built_warehouse):
+    """
+    The fanout trap.
+
+    `order_items_golden.csv` only has items for these paid orders:
+      1001 (2 items) total_usd=39.97
+      1002 (1 item)  total_usd=19.98
+      1005 (3 items) total_usd=120.00
+      1006 (1 item)  total_usd=15.00
+
+    RIGHT (no fanout):
+    it SUMs order totals once per `order_id`.
+    = 39.97 + 19.98 + 120.00 + 15.00
+    = 194.95
+
+    WRONG (fanout):
+    JOIN on items then SUM order totals with no aggregation to the right grain. 
+    This will repeat totals per item row.
+    = 39.97*2 + 19.98*1 + 120.00*3 + 15.00*1
+    = 474.92
+    """
+    wrong_path = repo_root / "sql/extras/050_fanout_trap_wrong.sql"
+    right_path = repo_root / "sql/extras/051_fanout_trap_right.sql"
+
+    wrong = _run_scalar_file(conn, wrong_path)
+    right = _run_scalar_file(conn, right_path)
+
+    assert Decimal(wrong) == Decimal("474.92")
+    assert Decimal(right) == Decimal("194.95")
+    assert Decimal(wrong) != Decimal(right)
