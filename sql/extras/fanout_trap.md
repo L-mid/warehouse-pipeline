@@ -40,4 +40,4 @@ The SQL examples under `sql/extras`:
 
 Test for both:
 
-- `tests/integration/test_fanout_trap_and_distinct.py`
+- `tests/integration/test_extra_queries.py`
