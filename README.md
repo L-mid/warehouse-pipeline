@@ -128,6 +128,8 @@ Additionally:
 
 - Tests such as `tests/integration/test_business_views.py` uses golden CSVs to assert **exact** rows in the views. Avoids regressions or weirdness with continuous updates.
 
+- The test under `tests/integration/extras` demonstrates various tested SQL queries from under `sql/extras`, including fanout.
+
 - CI runs `make demo` on every push (runs unit + integration). 
 
 

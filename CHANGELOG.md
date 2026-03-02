@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+
+## v0.2.0 - 2026-03-02
 ### Added
 - Sample data `orders.csv` and `order_items.csv` to data pipeline + tests.
 - Per run temp/working table added: enables duplicate rejection using a 'first seen wins' acceptance method.
