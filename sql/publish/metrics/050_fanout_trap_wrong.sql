@@ -7,8 +7,13 @@
 -- So revenue inflates (this is the 'fanout trap').
 
 SELECT
+  fo.date AS day,
   SUM(fo.total_usd) AS paid_revenue_usd_wrong
-FROM fact_orders fo
-JOIN fact_order_items foi
+FROM v_fact_orders_latest fo
+JOIN v_fact_order_items_latest foi
   ON foi.order_id = fo.order_id
-WHERE fo.status = 'paid';
+WHERE LOWER(TRIM(fo.status)) = 'paid'
+GROUP BY 1
+ORDER BY 1;
+
+
