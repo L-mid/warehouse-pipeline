@@ -7,7 +7,7 @@
 
 SELECT
   fo.country,
-  COUNT(DISTINCT fo.customer_id) FILTER (WHERE LOWER(TRIM(fo.status)) = 'paid') AS distinct_paid_customers
+  COUNT(DISTINCT fo.customer_id) FILTER (WHERE fo.status) = 'paid' AS distinct_paid_customers
 FROM v_fact_orders_latest fo
 GROUP BY 1
 ORDER BY distinct_paid_customers DESC, fo.country ASC;

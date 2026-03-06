@@ -12,7 +12,7 @@ WITH product_week AS (
   FROM v_fact_order_items_latest foi
   JOIN v_fact_orders_latest fo
     ON fo.order_id = foi.order_id
-  WHERE LOWER(TRIM(fo.status)) = 'paid'
+  WHERE fo.status = 'paid'
   GROUP BY 1, 2
 )
 SELECT *

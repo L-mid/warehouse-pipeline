@@ -17,7 +17,7 @@ SELECT
 FROM v_fact_orders_latest fo
 JOIN items_by_order ibo 
   ON ibo.order_id = fo.order_id
-WHERE LOWER(TRIM(fo.status)) = 'paid'
+WHERE fo.status = 'paid'
 GROUP BY 1
 ORDER BY 1;
 

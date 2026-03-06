@@ -1,4 +1,4 @@
-from warehouse_pipeline.db.staging_writers import TABLE_SPECS
+from warehouse_pipeline.db.writers.staging_writers import TABLE_SPECS
 
 
 def test_table_specs_key_cols_are_tuples():

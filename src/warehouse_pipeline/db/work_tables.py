@@ -7,7 +7,7 @@ from uuid import UUID
 from psycopg import Connection, sql
 from psycopg.types.json import Jsonb
 
-from warehouse_pipeline.db.staging_writers import TABLE_SPECS, TableWriteSpec, adapt_staging_value
+from warehouse_pipeline.db.writers.staging_writers import TABLE_SPECS, TableWriteSpec, adapt_staging_value
 
 
 

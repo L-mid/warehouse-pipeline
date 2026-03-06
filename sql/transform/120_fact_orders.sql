@@ -1,6 +1,6 @@
 -- Builds fact_orders from stg_orders (from the latest succeeded run)
 CREATE TABLE IF NOT EXISTS fact_orders (
-  order_id      bigint PRIMARY KEY,           -- fact_orders grain is 1 row per order
+  order_id      bigint PRIMARY KEY,           -- fact_orders grain is one row per order
   customer_id   bigint NOT NULL,
   date          date,
   order_ts      timestamptz,

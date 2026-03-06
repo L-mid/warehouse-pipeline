@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS stg_order_items (
 -- Grain is one row per rejected row (all table fields non-null)
 CREATE TABLE IF NOT EXISTS reject_rows (
     reject_id       bigserial PRIMARY KEY,
-    run_id          uuid NOT NULL REFERENCES ingest_runs(run_id) ON DELETE CASCADE,
+    run_id          uuid NOT NULL REFERENCES run_ledgers(run_id) ON DELETE CASCADE,
     table_name      text NOT NULL,              -- which stg_* this reject was collected from
     source_ref      integer NOT NULL,           -- where it came from, -- e.g. `'users[12]'`, `'carts[4].products[2]'`, .
     raw_payload     jsonb NOT NULL,             -- storing `{"raw": {...}, "canonical": {...}}` or `{"raw": {...}}` from ingestion,
@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS reject_rows (
 -- dq_results           (data quality metric rows stored as rows (per run))
 -- grain is one row per (run_id, table_name, check_name, metric_name).
 CREATE TABLE IF NOT EXISTS dq_results (
-    run_id          uuid NOT NULL REFERENCES ingest_runs(run_id) ON DELETE CASCADE,
+    run_id          uuid NOT NULL REFERENCES run_ledger(run_id) ON DELETE CASCADE,
     table_name      text NOT NULL,
     check_name      text NOT NULL,
     metric_name     text NOT NULL,

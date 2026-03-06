@@ -7,8 +7,8 @@ from uuid import UUID
 from psycopg import Connection
 
 from warehouse_pipeline.db.ingest_runs import insert_ingest_run, update_ingest_run_status
-from warehouse_pipeline.db.reject_writers import RejectInsert, insert_reject_rows
-from warehouse_pipeline.db.staging_writers import TABLE_SPECS
+from warehouse_pipeline.db.writers.reject_writers import RejectInsert, insert_reject_rows
+from warehouse_pipeline.db.writers.staging_writers import TABLE_SPECS
 from warehouse_pipeline.db.work_tables import WorkRow, finalize_work_to_staging, insert_work_rows, prepare_work_table
 from warehouse_pipeline.ingest.readers import stream_csv_dict_rows, stream_jsonl_dict_rows
 from warehouse_pipeline.ingest.summary import LoadSummary
