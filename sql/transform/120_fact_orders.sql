@@ -1,21 +1,4 @@
--- Builds fact_orders from stg_orders (from the latest succeeded run)
-CREATE TABLE IF NOT EXISTS fact_orders (
-  order_id      bigint PRIMARY KEY,           -- fact_orders grain is one row per order
-  customer_id   bigint NOT NULL,
-  date          date,
-  order_ts      timestamptz,
-  country       text,
-  status        text,
-  total_usd     numeric(12,2),
-  source_run_id uuid NOT NULL,
-  built_at      timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS fact_orders_customer_idx
-  ON fact_orders (customer_id);
-
-CREATE INDEX IF NOT EXISTS fact_orders_date_idx
-  ON fact_orders (date);
+-- Builds `fact_orders` from stg_orders (from the latest succeeded run)
 
 
 TRUNCATE TABLE fact_orders;
@@ -40,4 +23,4 @@ SELECT
   o.total_usd,
   o.run_id AS source_run_id
 FROM stg_orders o
-WHERE o.run_id = (SELECT run_id FROM latest_run);
+WHERE o.run_id = %(orders_run_id)s;   -- for the provided run_id

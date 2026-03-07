@@ -49,7 +49,7 @@ def fixed_run_id() -> str:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Add lines to ini."""
+    """Add lines for ini."""
     config.addinivalue_line(
         "markers",
         "integration: touches external deps (docker/postgres/http/etc.)",

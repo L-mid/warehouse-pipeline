@@ -2,7 +2,7 @@ from __future__ import annotations
 
 
 from warehouse_pipeline.cli.loader import load_file
-from warehouse_pipeline.warehouse.build import build_warehouse
+from warehouse_pipeline.transform.warehouse_build import build_warehouse
 
 
 def test_warehouse_build_grains(conn, repo_root) -> None:

@@ -42,7 +42,7 @@ def _apply_sql_dir(conn: psycopg.Connection, dir_path: Path) -> None:
 
 def _drop_public_schema(conn: psycopg.Connection) -> None:
     """
-    Drops everything in the public Postgres schema via `DROP SCHEMA`, 
+    Drops everything in the public Postgres schema, 
     then creates and commits a new public schema.
     """
     with conn.cursor() as cur:
@@ -145,19 +145,13 @@ def reinit_schema(wait_for_db: None, dsn: str, repo_root: Path) -> None:
     
     sql_root = repo_root / "sql"
     schema_dir = sql_root / "schema"
-    transform_dir = sql_root / "transform"
-    publish_dir = sql_root / "publish"  # only top level `*.sql` 
 
     with psycopg.connect(dsn, autocommit=True) as conn:
         _drop_public_schema(conn)
 
-        # order of ex:
         ## -- schema
         _apply_sql_dir(conn, schema_dir)
-        ## -- transform, dim/fact DDL and do build statements
-        _apply_sql_dir(conn, transform_dir)
-        ## -- publish, views/derived from transform. 
-        _apply_sql_dir(conn, publish_dir)
+        
 
 
 

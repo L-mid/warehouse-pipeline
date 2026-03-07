@@ -6,7 +6,7 @@ from uuid import UUID
         
 
 from warehouse_pipeline.db.initialize import db_init
-from warehouse_pipeline.warehouse.build import build_warehouse
+from warehouse_pipeline.transform.warehouse_build import build_warehouse
 from warehouse_pipeline.db.connect import connect
 from warehouse_pipeline.cli.loader import load_file
 from warehouse_pipeline.dq.runner import run_dq

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from warehouse_pipeline.cli.loader import load_file
-from warehouse_pipeline.warehouse.build import build_warehouse
+from warehouse_pipeline.transform.warehouse_build import build_warehouse
 
 
 def _run_query_file(conn, path: Path):
