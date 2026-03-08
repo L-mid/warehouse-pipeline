@@ -8,28 +8,14 @@ from psycopg import Connection, sql
 from psycopg.types.json import Jsonb
 
 
- 
- 
 @dataclass(frozen=True)
 class RejectInsert:
     """`reject_rows` table's expected data schema for inserting rejected rows."""
     table_name: str             
-    source_row: int
+    source_ref: int
     raw_payload: Mapping[str, Any]
     reason_code: str
     reason_detail: str
-
-
-# cols that should expect jsonb conversion
-_JSONB_COLS = {"raw_payload"}
-
-
-
-def _adapt(col: str, value: Any) -> Any:
-    """Adapt python values to DB types (e.g., `jsonb`)."""
-    if col in _JSONB_COLS and value is not None:
-        return Jsonb(value)
-    return value
 
 
 
@@ -37,14 +23,16 @@ def insert_reject_rows(conn: Connection, *, run_id: UUID, rejects: Sequence[Reje
     """
     Insert `rejects` into the DB's `reject_rows`.
     
-    Table/column identifiers are fixed/non derived constants. 
+    Table and column identifiers are fixed derived constants. 
     Values are parameterized directly.
     """
+    if not rejects:
+        return 0
 
     # fixed cols in `reject_rows`:
-    cols = ("run_id", "table_name", "source_row", "raw_payload", "reason_code", "reason_detail")
+    cols = ("run_id", "table_name", "source_ref", "raw_payload", "reason_code", "reason_detail")
 
-    # paramaterize in values per col.
+    # paramaterize in the values per col.
     query = sql.SQL("INSERT INTO {tbl} ({cols}) VALUES ({vals})").format(
         tbl=sql.Identifier("reject_rows"),
         cols=sql.SQL(", ").join(sql.Identifier(c) for c in cols),
@@ -58,8 +46,8 @@ def insert_reject_rows(conn: Connection, *, run_id: UUID, rejects: Sequence[Reje
             (
                 run_id,
                 r.table_name,
-                r.source_row,
-                _adapt("raw_payload", dict(r.raw_payload)),
+                r.source_ref,
+                Jsonb(dict(r.raw_payload)),
                 r.reason_code,
                 r.reason_detail,
             )
@@ -68,3 +56,6 @@ def insert_reject_rows(conn: Connection, *, run_id: UUID, rejects: Sequence[Reje
     if params:
         with conn.cursor() as cur:
             cur.executemany(query, params)  # sequential batch processing
+
+
+    return len(params)

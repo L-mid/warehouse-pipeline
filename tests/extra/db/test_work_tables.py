@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from warehouse_pipeline.db.ingest_runs import insert_ingest_run
+from warehouse_pipeline.db.run_ledger import insert_ingest_run
 from warehouse_pipeline.db.work_tables import WorkRow, finalize_work_to_staging, insert_work_rows, prepare_work_table
 
 

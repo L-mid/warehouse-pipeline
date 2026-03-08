@@ -8,7 +8,7 @@ from uuid import UUID
 from psycopg import Connection, sql
 
 from warehouse_pipeline.db.dq_results import DQMetricRow, delete_dq_results, insert_dq_results
-from warehouse_pipeline.db.writers.staging_writers import TABLE_SPECS
+from warehouse_pipeline.db.writers.staging import TABLE_SPECS
 
 
 _Q6 = Decimal("0.000000")  # this one is align with numeric(18,6), for higher precison.

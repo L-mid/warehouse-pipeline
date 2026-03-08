@@ -6,25 +6,30 @@ from typing import Optional
 import psycopg
 from psycopg import Connection
 
+# for runtime/cli
 DEFAULT_DSN = "postgresql://postgres:postgres@localhost:5433/warehouse"
 
 
 
 def get_database_url() -> str:
-    """Returns docker enviroment."""
-    # CLI/runtime uses WAREHOUSE_DSN. 
-    # tests have WAREHOUSE_TEST_DSN set.
-    return os.getenv("WAREHOUSE_DSN", DEFAULT_DSN)          # will fetch from the env first and formost.
-
-
-def connect(database_url: Optional[str] = None) -> Connection:
     """
-    Return a psycopg connection.
+    Get the main database URL for runtime/CLI usage.
 
-    - Uses `DATABASE_URL`, if not provided earlier.
-    - Leaves autocommit OFF (commits explicitly managed elsewhere).
+    Tests instead pass a different explicit URL into `connect(...)`
+    or by setting `WAREHOUSE_DSN` in their own test environment.
+    """
+    return os.getenv("WAREHOUSE_DSN", DEFAULT_DSN)
+ 
+
+
+def connect(database_url: Optional[str] = None, *, autocommit: bool = False) -> Connection:
+    """
+    Open and return a psycopg connection.
+
+    - Uses DSN from `WAREHOUSE_DSN`, falling back to `DEFAULT_DSN`.
+    - Leaves autocommit OFF (commits are explicitly managed elsewhere).
     """
     url = database_url or get_database_url()
-    return psycopg.connect(url)
+    return psycopg.connect(url, autocommit=autocommit)
 
 
