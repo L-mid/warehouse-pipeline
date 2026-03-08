@@ -238,7 +238,7 @@ def _duplicate_reason_detail_expr(spec: StagingTableSpec) -> sql.Composable:
     if len(parts) == 1:
         joined = parts[0]
     else:
-        joined = sql.SQL("concat_ws(', ', {pieces})").format(
+        joined = sql.SQL("concat_ws(', ', {parts})").format(
             parts=sql.SQL(", ").join(parts),
         )
 
