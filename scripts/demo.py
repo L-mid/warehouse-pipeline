@@ -104,13 +104,13 @@ def main() -> None:
 
     wait_for_db(DEFAULT_DSN)
 
-    with psycopg.connect(DEFAULT_DSN) as conn:
-        before_run_count = fetch_run_ledger_count(conn)
-
     run_cmd(
         [sys.executable, "-m", "warehouse_pipeline.cli.main", "db", "init"],
         cwd=repo_root,
     )
+
+    with psycopg.connect(DEFAULT_DSN) as conn:
+        before_run_count = fetch_run_ledger_count(conn)
 
     run_cmd(
         [

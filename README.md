@@ -32,10 +32,6 @@ python -m venv .venv
 python -m pip install -U pip
 pip install -e ".[dev]"
 
-# initializes the schema on the running local Postgres
-make down
-pipeline db init  
-
 # Boots up your local docker, runs a fast snapshot smoke pipeline, and runs tests.
 make demo 
 ```
@@ -51,7 +47,7 @@ pipeline db init
 # run the pipeline on a snapshot:
 pipeline run --mode snapshot --snapshot v1
 ```
-Upon completion, the CLI prints a short run summary including the `run_id` and final status.
+Upon completion, the CLI prints a run summary including the `run_id` and final status.
 
 
 ### Inspect the data you just ran
