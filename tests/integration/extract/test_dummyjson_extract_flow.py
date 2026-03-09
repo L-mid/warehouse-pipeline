@@ -132,7 +132,7 @@ def dummyjson_server() -> Iterator[str]:
 
 
 
-def test_extract_flow_writes_all_snapshots(
+def test_extract_happy_path(
     tmp_path: Path,
     dummyjson_server: str,
 ) -> None:

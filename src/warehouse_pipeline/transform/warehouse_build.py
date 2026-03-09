@@ -31,7 +31,7 @@ def latest_succeeded_run_id(conn: Connection, table_name: str) -> UUID:
     row = conn.execute(
         """
         SELECT run_id
-        FROM ingest_runs
+        FROM run_ledger
         WHERE table_name = %s AND status = 'succeeded'  
         ORDER BY started_at DESC
         LIMIT 1
