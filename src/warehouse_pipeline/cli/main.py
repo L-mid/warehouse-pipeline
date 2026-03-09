@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     #### smoke the pipeline fast on a stable mock extraction.  
     `pipeline run --mode snapshot --snapshot smoke`
 
-    #### extract from DummyJson live and run the pipeline on that (requires internet).
+    #### extract from `DummyJson` live and run the pipeline on that (requires internet).
     `pipeline run --mode live`
     """
 
@@ -57,3 +57,5 @@ def main(argv: list[str] | None = None) -> int:
     return int(handler(args))   # handlers are responsible for returning their `int` ONLY
 
 
+if __name__ == "__main__":
+    raise SystemExit(main())

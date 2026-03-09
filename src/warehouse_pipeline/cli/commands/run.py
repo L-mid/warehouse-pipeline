@@ -44,6 +44,8 @@ def register_run_commands(subparsers: argparse._SubParsersAction) -> None:
 def handle_run(args: argparse.Namespace) -> int:
     """Wrapper to handle runs called from CLI."""
 
+    if args.mode == "live": raise NotImplementedError("Live mode not implemented yet.")
+
     ## -- init RunSpec to hand to pipeline
     spec = RunSpec(
         mode=args.mode,

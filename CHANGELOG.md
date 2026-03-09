@@ -4,10 +4,12 @@
 
 ### Added
 - Added an HTTP API extractor skeleton for DummyJson + tests.
+- Separations of concerns into respective directories, better skeleton code.
+- Tests for new injestion and overall many minimal stub tests to be expanded upon later.
 
 ### Fixed
 - Directory structure now refactored (especially tests).
-- `sql/` directory now builds tables for DummyJosn adjacent fields, not mock data, with clearer file organization into `schema/`, `transform/`, and `publish/`.
+- `sql/` directory now builds tables for DummyJson adjacent fields, not mock data, with clearer file organization into `schema/`, `transform/`, and `publish/`.
 - Separation of inline data structures into appropriate Dataclasses in `warehouse_pipeline/transform` (previously `warehouse`), and now returns a nice summary for tests.
 
 

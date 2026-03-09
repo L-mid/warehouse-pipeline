@@ -1,36 +1,45 @@
 # Run contract
 
-A run is considered one end-to-end pipeline execution.
+A run is one full end-to-end pipeline execution.
 
-- `run_id`: UUIDv4 string (`"6d0c1a21-9d2b-4e85-9c9b-b54a8b2bd8e1"`).
-- `run_mode`: `"snapshot"` or `"live"`.
+Each run has:
+- a `run_id` (UUID)
+- a row in `run_ledger`
+- staging rows tagged with that `run_id`
+- DQ metric rows tagged with that `run_id`
+- a per-run artifact directory under `runs/<run_id>/`
 
 
-## Modes
+## Run modes
 
-### default snapshot mode
-Reads from the repo-pinned files:
-- `data/snapshots/dummyjson/<snapshot_id>/users.json`
-- `data/snapshots/dummyjson/<snapshot_id>/products.json`
-- `data/snapshots/dummyjson/<snapshot_id>/carts.json`
+### Snapshot mode
+Reads pinned files from the repo:
 
-`snapshot_id` examples:
-- `v1`      (demo)
-- `smoke`   (tiny + fast CI)
+- `data/snapshots/dummyjson/<snapshot_key>/users.json`
+- `data/snapshots/dummyjson/<snapshot_key>/products.json`
+- `data/snapshots/dummyjson/<snapshot_key>/carts.json`
 
-### live mode (optional)
-Reads from DummyJSON HTTP endpoints:
-- `/users`, `/products`, `/carts`
+Current snapshot keys:
+- `smoke`   — tiny, fast, stable, used by `make demo`
+- `v1`      — fuller manual example of a snapshot
 
-Live mode not required for against CI.
+
+### Live mode
+Reads from `DummyJSON` HTTP endpoints:
+
+- `/users`
+- `/products`
+- `/carts`
+
+Live mode exercises the external extract path, but it is not the default demo path.
 
 
 ## Runtime artifacts
 
-All per-run artifacts go under:
+Each run writes a small artifact bundle:
 
-- `runs/<run_id>/manifest.json`  (required)
-- `runs/<run_id>/logs.txt`       (optional)
-- `runs/<run_id>/timings.json`   (optional. it
-s ok to embed in manifest instead)
+- `runs/<run_id>/manifest.json`     — required summary artifact
+- `runs/<run_id>/logs.jsonl`        — structured per-phase/event log
 
+The manifest is the human-readable summary for a run.
+The log file is the detailed event stream, it's used for debugging.

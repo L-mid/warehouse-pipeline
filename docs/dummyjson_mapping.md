@@ -1,13 +1,21 @@
-## DummyJSON to staging mapping (v1)
+## DummyJSON to staging mapping 
+
+This project reads three DummyJSON-shaped inputs and maps them into four staging tables.
 
 
-Sourced snapshots from DummuJSON:
-- `users.json`    (DummyJSON Users) 
-- `products.json` (DummyJSON Products) 
-- `carts.json`    (DummyJSON Carts) 
+## Source files
 
-Resulting tables:
+- `users.json`
+- `products.json`
+- `carts.json`
+
+
+## Resulting staging tables
+
 - `stg_customers`
 - `stg_products`
 - `stg_orders`
 - `stg_order_items`
+
+
+#

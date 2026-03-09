@@ -4,9 +4,3 @@
 def test_integration_smoke():
     pass
 
-
-# we need to fix:
-# demo
-# readme
-# reconfim docs/ still ok
-# changelog updates
