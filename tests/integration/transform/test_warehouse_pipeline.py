@@ -93,12 +93,10 @@ def test_build_warehouse_happy_path(conn) -> None:
     # build
     result = build_warehouse(
         conn,
-        customers_run_id=run_id,
-        orders_run_id=run_id,
-        order_items_run_id=run_id,
+        run_id=run_id,
     )
 
-    assert result.run_ids.customers_run_id == run_id
+    assert result.run_id == run_id
     assert result.files_ran == (
         "100_dim_customer.sql",
         "110_dim_date.sql",

@@ -7,7 +7,7 @@ from tests.unit.db.mocks import FakeConnection
 
 
 def test_initialize_happy_path(tmp_path: Path, monkeypatch) -> None:
-    """Schema re-initalized from sql provided in ASC order, and commits when done."""
+    """Schema is re-initalized from sql provided in ASC order, and commits when done."""
     schema_dir = tmp_path / "schema"
     schema_dir.mkdir()
 

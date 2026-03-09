@@ -8,13 +8,13 @@ TRUNCATE TABLE fact_order_items;
 WITH o AS (      -- orders
   SELECT *
   FROM stg_orders
-  WHERE run_id = %(orders_run_id)s  -- for the provided run_id
+  WHERE run_id = %(run_id)s  -- for the provided run_id
 ),
 
 i AS (      -- items
   SELECT *
   FROM stg_order_items
-  WHERE run_id = %(order_items_run_id)s
+  WHERE run_id = %(run_id)s
 )
 INSERT INTO fact_order_items (
   order_id, line_id, customer_id, date, product_id, sku,

@@ -22,7 +22,7 @@ SELECT
   c.company,
   c.run_id AS source_run_id
 FROM stg_customers c
-WHERE c.run_id = %(customers_run_id)s; -- for the provided run_id
+WHERE c.run_id = %(run_id)s; -- for the provided run_id
 
 
 

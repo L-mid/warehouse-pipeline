@@ -10,7 +10,7 @@ WITH bounds AS (
     COALESCE(min(order_ts)::date, current_date) AS min_d,
     COALESCE(max(order_ts)::date, current_date) AS max_d
   FROM stg_orders
-  WHERE run_id = %(orders_run_id)s  -- for the provided run_id
+  WHERE run_id = %(run_id)s  -- for the provided run_id
 ),
 days AS (
   SELECT generate_series((SELECT min_d FROM bounds),    -- generated

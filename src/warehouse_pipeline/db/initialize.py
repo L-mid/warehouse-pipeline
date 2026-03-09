@@ -32,7 +32,7 @@ def initialize_database(*, sql_path: Optional[Path] = None, database_url: Option
     with connect(database_url) as conn:
         try:
             # dir logic
-            if sql_path.is_dir():       
+            if target.is_dir():       
                 run_sql_dir(conn, target)
             # just run one file
             else:

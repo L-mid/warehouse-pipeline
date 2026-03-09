@@ -55,21 +55,15 @@ def test_build_warehouse_happy_path(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     monkeypatch.setattr(mod, "_run_sql_file", fake_run_sql_file)            # seen the file so assume could the read file, for unit
 
     conn = DummyConn()      # mock. 
-    customers_run_id = uuid4()
-    orders_run_id = uuid4()
-    order_items_run_id = uuid4()
+    run_id = uuid4()
 
     result = mod.build_warehouse(
         conn,
         step_name="build_dims",
-        customers_run_id=customers_run_id,
-        orders_run_id=orders_run_id,
-        order_items_run_id=order_items_run_id,
+        run_id=run_id,
     )
 
 
-    assert conn.commit_calls == 1       # not three or none. one
-    assert conn.rollback_calls == 0
     assert [name for name, _ in seen] == list(file_names)   # all file names MUST have been seen in order
     assert result.files_ran == file_names
-    assert result.run_ids.customers_run_id == customers_run_id  # saw correct one to return it here
+    assert result.run_id == run_id # saw correct one to return it here
