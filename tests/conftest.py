@@ -62,16 +62,21 @@ def pytest_configure(config: pytest.Config) -> None:
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """
-    Auto-mark tests by which folder they're in:
-    - `tests/integration/**` -> @pytest.mark.integration
-    - `tests/unit/**`        -> @pytest.mark.unit
+    Auto mark tests by which folder they're in.
     """
     for item in items:
         p = str(item.fspath).replace("\\", "/")
-        if "/tests/integration/" in p:
-            item.add_marker(pytest.mark.integration)
+
         if "/tests/unit/" in p:
             item.add_marker(pytest.mark.unit)
+
+        if "/tests/integration/" in p:
+            item.add_marker(pytest.mark.integration)
+
+        if "/tests/integration/whole_pipeline_runs/" in p:
+            item.add_marker(pytest.mark.heavy_integration)
+
+    
 
 
             

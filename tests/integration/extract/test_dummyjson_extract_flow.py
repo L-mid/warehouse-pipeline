@@ -161,3 +161,21 @@ def test_extract_happy_path(
 
     assert carts["total"] == 1  # there was one cart entry only
     assert len(carts["carts"]) == 1
+
+
+
+# some extra smoke assertions (unrelated to this exact extract for now)
+def test_smoke_snapshot_shapes(dummyjson_snapshots_dir) -> None:
+    """Smoke snapshots in the real dir must contain correctly named json top level."""
+
+    SMOKE_DIR = dummyjson_snapshots_dir / "smoke"
+
+    users = json.loads((SMOKE_DIR  / "users.json").read_text())
+    products = json.loads((SMOKE_DIR / "products.json").read_text())
+    carts = json.loads((SMOKE_DIR / "carts.json").read_text())
+
+    assert "users" in users
+    assert "products" in products
+    assert "carts" in carts
+
+

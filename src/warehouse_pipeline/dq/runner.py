@@ -17,7 +17,7 @@ _Q6 = Decimal("0.000000")  # this one is align with numeric(18,6), for higher pr
 @dataclass(frozen=True)
 class DQRunSummary:
     """
-    Summary of each table's DQ execution.
+    Summary of a run's DQ execution.
     """
     run_id: UUID
     table_name: str

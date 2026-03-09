@@ -27,4 +27,13 @@ pipeline = "warehouse_pipeline.cli.main:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-s", "-q"]
+addopts = ["-q", "--strict-markers"]
+norecursedirs = [".git", ".venv", "runs", "src/extra", "tests/extra"]   # stay out of my extra dirs
+markers = [
+  "unit: local-only test (no docker, no live http, no external services, offline friendly)",
+  "integration: touches external deps (docker/postgres/http/etc.)",
+  "heavy_integration: heavy end-to-end tests, some may be flaky",
+]
+
+
+

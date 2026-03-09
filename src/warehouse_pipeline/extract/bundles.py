@@ -16,7 +16,7 @@ from warehouse_pipeline.extract.models import (
 from warehouse_pipeline.extract.paginator import PaginationResult, fetch_all_pages
 from warehouse_pipeline.extract.snapshot_store import SnapshotStore
 
-
+ 
 DEFAULT_SNAPSHOT_BASE_DIR = (
     Path(__file__).resolve().parents[3] / "data" / "snapshots" / "dummyjson"
 )
@@ -48,7 +48,7 @@ def snapshot_root_for_key(snapshot_key: str, *, base_dir: Path | None = None) ->
     return root / snapshot_key  # give a key
 
 
-
+ 
 def read_snapshot_bundle(
     *,
     snapshot_root: Path,

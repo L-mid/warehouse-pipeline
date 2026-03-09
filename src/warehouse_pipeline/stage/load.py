@@ -117,7 +117,7 @@ def load_mapped_batches(
     products: MappedProducts,
     carts: MappedCarts,
 ) -> dict[str, StageTableLoadResult]:
-    """A convenience wrapper for loading the three standard `DummyJSON` stage batches all at once."""
+    """A convenience wrapper for loading the three standard `DummyJSON` stage batches and `reject_rows` all at once."""
     all_rows: list[StageRow] = [
         *users.rows,
         *products.rows,

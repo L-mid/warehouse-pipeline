@@ -2,6 +2,9 @@
 -- Builds dim_customer from stg_customers (from the latest succeeded run only)
 
 
+TRUNCATE TABLE dim_customer;
+
+
 INSERT INTO dim_customer (
   customer_id, first_name, last_name, full_name,
   email, phone, city, country, company,

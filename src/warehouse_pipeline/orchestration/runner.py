@@ -150,7 +150,7 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
 
 
     with connect(database_url) as conn:
-        # Inject a connect to initalize the run ledger before anything else
+        # Connect to initalize the run ledger before anything else
         # keeps it commited even after rollback if error
         run_id = create_run(
             conn,
@@ -223,6 +223,18 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
             timings_s["stage_load"] = perf_counter() - t0
             logger.phase_finished("stage_load", duration_s=timings_s["stage_load"], tables=list(stage_summary))
 
+            ## -- dq
+            t0 = perf_counter()
+            logger.phase_started("dq")
+            dq_results = run_stage_dq(conn, run_id=run_id)
+            conn.commit()       # commit dq table checks in 
+            dq_summary = _summarize_dq(dq_results)
+            timings_s["dq"] = perf_counter() - t0
+            logger.phase_finished(
+                "dq",
+                duration_s=timings_s["dq"],
+                tables=list(dq_summary),
+            )
 
             ## -- gate
             t0 = perf_counter()

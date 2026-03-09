@@ -17,13 +17,13 @@ class SnapshotStore:
         self.root = root
 
     def path_for(self, name: str) -> Path:
-        """Put the `json` file in its expected place."""
+        """Put the `.json` file in its expected place."""
         filename = name if name.endswith(".json") else f"{name}.json"
         return self.root / filename  
     
 
     def write_json(self, name: str, payload: Mapping[str, Any]) -> Path:
-        """Write a `.json`file automically to an expected path. Returns the path it used as `final_path`."""
+        """Write a `.json` file automically to an expected path. Returns the path it used as `final_path`."""
         self.root.mkdir(parents=True, exist_ok=True)
 
         final_path = self.path_for(name)

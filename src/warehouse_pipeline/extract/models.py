@@ -97,7 +97,7 @@ class PageEnvelope(ExtractModel):
 class UsersPage(PageEnvelope):
     """Returned data for the Users page."""
     users: list[DummyUser]
-
+ 
 
 class ProductsPage(PageEnvelope):
     """Data for Product's page."""
