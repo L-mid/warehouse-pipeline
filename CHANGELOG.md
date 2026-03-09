@@ -2,10 +2,13 @@
 
 ## Unreleased
 
+## v0.3.0 - 2026-03-09
 ### Added
 - Added an HTTP API extractor skeleton for DummyJson + tests.
 - Separations of concerns into respective directories, better skeleton code.
-- Tests for new injestion and overall many minimal stub tests to be expanded upon later.
+- Added minimal happy-path stub tests across the new ingestion, orchestration, database, stage, DQ, and publish flows to serve as expansion points later.
+- Added snapshot-based smoke fixtures for fast local and integration test runs.
+- Moved inline transformation data structures into dedicated dataclasses under `warehouse_pipeline.transform`, and updated pipeline outputs to return clearer run summaries for testing and debugging.
 
 ### Fixed
 - Directory structure now refactored (especially tests).
