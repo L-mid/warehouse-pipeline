@@ -1,50 +1,45 @@
 from __future__ import annotations
 
-from warehouse_pipeline.db.connect import connect
-
-
 from pathlib import Path
-import psycopg
+from typing import Optional
 
+
+from warehouse_pipeline.db.connect import connect
+from warehouse_pipeline.db.sql_runner import run_sql_dir, run_sql_file
 
  
-def _run_sql_file(conn: psycopg.Connection, sql_path: Path) -> None:
-    """Read and execute a `.sql` file."""
-    sql = sql_path.read_text(encoding="utf-8")
 
-    # psycopg can execute multi-statement scripts via `execute` with `conn.execute(sql)`
-    # BUT safest is to split it on semicolons, but only if also surfacing failing statements.
-    statements = [s.strip() for s in sql.split(";") if s.strip()]
-
-    with conn.cursor() as cur:
-        for i, stmt in enumerate(statements, 1):
-            try:
-                cur.execute(stmt)
-            except Exception as e:
-                raise RuntimeError(
-                    f"DB init failed in {sql_path} on statement #{i}\n"
-                    f"Postgres raised with: {e}\n"
-                    f"--- statement ---\n{stmt}\n--- end ---\n"
-                ) from e
-    conn.commit()
+def _default_schema_dir() -> Path:
+    """Return the initallization sql schema directory path as default schema init path."""
+    return Path(__file__).resolve().parents[3] / "sql" / "schema"
 
 
 
-
-def db_init(*, sql_path: Path) -> None:
+def initialize_database(*, sql_path: Optional[Path] = None, database_url: Optional[str] = None) -> None:
     """
-    Read a provided SQL init path to initalize (or re-initalize) this DB.
+    Read a provided SQL schema init path to initalize (or re-initalize) this DB.
     
     - If `sql_path` is a dir, run all `*sql` files in sorted to ASC order.
     - If `sql_path` is just one file, it will run just that file.
+
+    Commits once at the end if all SQL fully succeeds,
+    and rolls back fully if anything fails.
     """
 
-    with connect() as conn:
-        # dir logic
-        if sql_path.is_dir():       
-            for p in sorted(sql_path.glob("*.sql")):    # ASC.
-                _run_sql_file(conn, p) 
-        # just run one file
-        else:
-            _run_sql_file(conn, sql_path)
+    target = sql_path or _default_schema_dir()  # optionally provide custom path
+
+
+    with connect(database_url) as conn:
+        try:
+            # dir logic
+            if target.is_dir():       
+                run_sql_dir(conn, target)
+            # just run one file
+            else:
+                run_sql_file(conn, target)
+
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
     

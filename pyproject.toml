@@ -6,12 +6,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "warehouse-pipeline"
-version = "0.2.0"
+version = "0.3.0"
 description = "Warehouse pipeline repository."  # more add dev info to project later.
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "psycopg[binary]>=3.2",
+  "httpx>=0.27",
+  "pydantic>=2.7",
+  "sqlparse>=0.5",
 ]
 
 [project.optional-dependencies]
@@ -24,4 +27,13 @@ pipeline = "warehouse_pipeline.cli.main:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-s", "-q"]
+addopts = ["-q", "--strict-markers"]
+norecursedirs = [".git", ".venv", "runs", "src/extra", "tests/extra"]   # stay out of my extra dirs
+markers = [
+  "unit: local-only test (no docker, no live http, no external services, offline friendly)",
+  "integration: touches external deps (docker/postgres/http/etc.)",
+  "heavy_integration: heavy end-to-end tests, some may be flaky",
+]
+
+
+

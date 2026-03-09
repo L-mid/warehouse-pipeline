@@ -2,14 +2,15 @@
 This is a Postgres staging ingest with rejects, data quality metrics, and exposing some explicit business SQL views. 
 
 ## This project demonstrates an example pipeline for: 
-- A locally hosted Postgres database with saved tables.
-- Typed ingestion (CSV/JSONL) and run lineage (`ingest_runs` table)
-- Row-level rejection with explicit queryable reasons (`reject_rows` table)
-- Data quality metrics are derived for inspection (`dq_results` table) (reruns for these metrics are idempotent as well)
+- A Postgres-backed pipeline.
+- Snapshot and live extract modes from `https://dummyjson.com/`.
+- Typed mapping into `stg_*` in Postgres.
+- Rejection capturing.
+- Data quality metrics and gates,
+- Warehouse transforms.
+- Published latest-run views.
 
-- Extensible business outputs section with easy to access SQL views (currently contains: `daily_revenue`, `new_customers_by_day`)
-
-- Additonally: Postgres is Dockerized + pytest integration and unit tests + CI
+- Additonally: has pytest integration and unit tests that CI runs on every push.
 
 
 ## Installation:
@@ -19,8 +20,8 @@ Please ensure you have the following pre-setup before proceeding:
 - Docker + Docker Compose
 - Python 3.11+
 
-### Installation instructions for the terminal:
-```bash
+### Installation instructions:
+```powershell
 python -m venv .venv
 
 # Windows Powershell:
@@ -31,80 +32,52 @@ python -m venv .venv
 python -m pip install -U pip
 pip install -e ".[dev]"
 
-# Boots up your local docker and runs tests
-make demo
-
-# this initalizes the DB to you locally (do this ONLY once if you already haven't before):
-pipeline db init        # restarts the database from scratch every time run
+# Boots up your local docker, runs a fast snapshot smoke pipeline, and runs tests.
+make demo 
 ```
 
 
-## Load up sample data to inspect some tables
-
-Using the command `load`, input a file.
-
-```bash
+## Run a snapshot pipeline execution
+```powershell
 # ensures docker is up on a fresh container instance 
 make down
-make demo
+make up
+pipeline db init
 
-# load up the sample data 
-pipeline load --input data/sample/customers-1000.csv --table stg_customers
-# and then:
-pipeline load --input data/sample/orders.csv --table stg_orders
-# and then: 
-pipeline load --input data/sample/order_items.csv --table stg_order_items
-    
+# run the pipeline on a snapshot:
+pipeline run --mode snapshot --snapshot v1
 ```
-Upon completion, a short printed results summary will display in the terminal for the data that was input.
+Upon completion, the CLI prints a run summary including the `run_id` and final status.
 
 
-### Inspect the data you just loaded
-You can query data from the Postgres tables by running psql inside your docker container. 
-```bash
-# query first 10 days of revenue
-docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM daily_revenue ORDER BY day LIMIT 10;"
-
-# query first 10 new customers
-docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM new_customers_by_day ORDER BY day LIMIT 10;"
-
-# query reason codes per table from rejected rows
-docker compose exec -T db psql -U postgres -d warehouse -c "SELECT table_name, reason_code, COUNT(*) AS n FROM reject_rows GROUP BY 1,2 ORDER BY n DESC LIMIT 12;"
-
-# query 12 derived health metrics per table name
-docker compose exec -T db psql -U postgres -d warehouse -c "SELECT table_name, check_name, metric_name, metric_value, passed FROM dq_results ORDER BY created_at DESC LIMIT 12;"
+### Inspect the data you just ran
+Some expamle inspection commands to see your data's in there:
+```powershell
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT run_id, status, snapshot_key, started_at, finished_at FROM run_ledger ORDER BY started_at DESC LIMIT 5;"
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM v_fact_orders_latest LIMIT 10;"
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM v_fact_order_items_latest LIMIT 10;"
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM v_dim_customer_latest LIMIT 10;"
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM v_dq_results_latest ORDER BY table_name, metric_name LIMIT 20;"
 ```
 
-### Queries off of transformed staged data:
-```bash
-# transform your now staged data into coherent fact tables:
-pipeline warehouse build --customers-run-id <run_id>    # <- use the `run_id` from your previous successful run here
-pipeline warehouse build --orders-run-id <run_id>
-pipeline warehouse build --order-items-run-id <run_id>
-
-
-# then view them:
-
-# revenue by day and country (grain by day)
-docker compose exec -T db psql -U postgres -d warehouse -f /docker-entrypoint-initdb.d/extras/010_revenue_by_day_country.sql
-
-# top products by start of the week.
-docker compose exec -T db psql -U postgres -d warehouse -f /docker-entrypoint-initdb.d/extras/020_top_products_per_week.sql
-
-# paid vs refunded orders vs total orders by country
-docker compose exec -T db psql -U postgres -d warehouse -f /docker-entrypoint-initdb.d/extras/030_paid_vs_refunded_counts.sql
+### Example business queries that were published
+```powershell
+Get-Content -Raw "sql\publish\metrics\010_revenue_by_day_country.sql" | docker compose exec -T db psql -U postgres -d warehouse
+Get-Content -Raw "sql\publish\metrics\020_top_products_per_week.sql" | docker compose exec -T db psql -U postgres -d warehouse
+Get-Content -Raw "sql\publish\metrics\030_paid_vs_refunded_counts.sql" | docker compose exec -T db psql -U postgres -d warehouse
+Get-Content -Raw "sql\publish\metrics\051_fanout_trap_right.sql" | docker compose exec -T db psql -U postgres -d warehouse
 ```
 
 
 ## Other useful commands: 
-```bash
+```powershell
 # Inspect the DB with psql, anytime:
 docker compose exec db psql -U postgres -d warehouse 
 # \q to quit
 
 # fully resets the DB to a fresh instance:
 make down               
-make demo
+make up
 pipeline db init    
 
 
@@ -122,14 +95,10 @@ Pipeline tested with the sepearation of:
 
 - Unit tests (run and work locally, fast)
 - Integration tests (these require an active Postgres + docker instance)
+- Heavy integration tests (slower larger tests)
 
 Additionally:
 - Tests use their own DB connection: `WAREHOUSE_TEST_DSN`. 
-
-- Tests such as `tests/integration/test_business_views.py` uses golden CSVs to assert **exact** rows in the views. Avoids regressions or weirdness with continuous updates.
-
-- The test under `tests/integration/extras` demonstrates various tested SQL queries from under `sql/extras`, including fanout.
-
 - CI runs `make demo` on every push (runs unit + integration). 
 
 

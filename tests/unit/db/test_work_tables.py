@@ -1,155 +1,78 @@
 from __future__ import annotations
 
-from datetime import date
-from pathlib import Path
+from decimal import Decimal
+from uuid import uuid4
 
-from warehouse_pipeline.db.ingest_runs import insert_ingest_run
-from warehouse_pipeline.db.work_tables import WorkRow, finalize_work_to_staging, insert_work_rows, prepare_work_table
-
-
-
-def test_prepare_work_table_creates_temp_table(conn) -> None:
-    """Assert temp table exists when called."""
-    prepare_work_table(conn, table_name="stg_customers")
-
-    # the temp tables live in pg_temp schema
-    exists = conn.execute("SELECT to_regclass('pg_temp._work_stg_customers') IS NOT NULL").fetchone()[0]
-    assert bool(exists) is True
+import warehouse_pipeline.db.work_tables as work_tables_mod
+from tests.unit.db.mocks import FakeConnection
+from warehouse_pipeline.db.writers.staging import StagingTableSpec
 
 
-def test_insert_work_rows_happy_path(conn) -> None:
-    """Row inserts successfully."""
-    prepare_work_table(conn, table_name="stg_customers")
+def test_work_table_happy_path(monkeypatch) -> None:
+    """
+    A temporary working table is created with good rows, 
+    runs dedupe logic, and flushes results to the real staging table.
+    """
 
-    run_id = insert_ingest_run(conn, input_path=Path("/tmp/customers.csv"), table_name="stg_customers")
+    conn = FakeConnection(fetchone_rows=[(1, 0)])
+    run_id = uuid4()
 
-    rows = [
-        WorkRow(
-            source_row=1,
-            raw_payload={"raw": {"Customer Id": "abc"}},
-            staging_mapping={
-                "customer_id": "abc",
-                "first_name": "Ada",
-                "last_name": "Lovelace",
-                "full_name": "Ada Lovelace",
-                "company": None,
-                "city": None,
-                "country": None,
-                "phone_1": None,
-                "phone_2": None,
-                "email": None,
-                "subscription_date": date(2020, 1, 1),
-                "website": None,
-            },
-        )
-    ]
-
-    insert_work_rows(conn, table_name="stg_customers", run_id=run_id, rows=rows)
-
-    ct = conn.execute("SELECT COUNT(*) FROM pg_temp._work_stg_customers WHERE run_id = %s", (run_id,)).fetchone()[0]
-    assert int(ct) == 1
-
-
-
-def test_finalize_work_to_staging_dedupes_and_rejects(conn) -> None:
-    """Assert a vaild row passes but duplicate row on the same PK becomes a reject."""
-    prepare_work_table(conn, table_name="stg_customers")
-
-    run_id = insert_ingest_run(conn, input_path=Path("/tmp/customers.csv"), table_name="stg_customers")
-
-    rows = [
-        WorkRow(
-            source_row=1,
-            raw_payload={"raw": {"Customer Id": "dup"}},
-            staging_mapping={
-                "customer_id": "dup",
-                "first_name": "Ada",
-                "last_name": "One",
-                "full_name": "Ada One",
-                "company": None,
-                "city": None,
-                "country": None,
-                "phone_1": None,
-                "phone_2": None,
-                "email": None,
-                "subscription_date": date(2020, 1, 1),
-                "website": None,
-            },
+    # gives it a fake spec
+    # used example is `stg_orders`
+    spec = StagingTableSpec(
+        table_name="stg_orders",
+        columns=(
+            "order_id",
+            "customer_id",
+            "order_ts",
+            "country",
+            "status",
+            "total_usd",
+            "total_products",
+            "total_quantity",
         ),
-        WorkRow(
-            source_row=2,
-            raw_payload={"raw": {"Customer Id": "dup"}},
-            staging_mapping={
-                "customer_id": "dup",
-                "first_name": "Ada",
-                "last_name": "Two",
-                "full_name": "Ada Two",
-                "company": None,
-                "city": None,
-                "country": None,
-                "phone_1": None,
-                "phone_2": None,
-                "email": None,
-                "subscription_date": date(2020, 1, 2),
-                "website": None,
-            },
-        ),
-    ]
+        key_cols=("order_id",),
+    )
 
-    insert_work_rows(conn, table_name="stg_customers", run_id=run_id, rows=rows)
+    # preparation prepares all tables for tmp before insertion.
+    work_tables_mod.prepare_work_table(conn, table_name="stg_orders")
 
-    inserted, dup_rejects = finalize_work_to_staging(conn, table_name="stg_customers", run_id=run_id)
+    # insert all good into work rows
+    inserted_into_work = work_tables_mod.insert_work_rows(
+        conn,
+        table_name="stg_orders",
+        run_id=run_id,
+        rows=[
+            # a single row (will not dupe)
+            work_tables_mod.WorkRow(
+                source_ref=1,
+                raw_payload={"id": 100},
+                values={
+                    "order_id": 100,
+                    "customer_id": 1,
+                    "order_ts": None,
+                    "country": "UK",
+                    "status": "paid",
+                    "total_usd": Decimal("9.99"),
+                    "total_products": 1,
+                    "total_quantity": 2,
+                },
+            )
+        ],
+    )
+    # sort dupes and good rows, push to real staging
+    inserted, duplicates = work_tables_mod.flush_work_table(
+        conn,
+        table_name="stg_orders",
+        run_id=run_id,
+    )
+
+    # only one insertion, one session.
+    assert inserted_into_work == 1
     assert inserted == 1
-    assert dup_rejects == 1
-
-    stg_ct = conn.execute("SELECT COUNT(*) FROM stg_customers WHERE run_id = %s", (run_id,)).fetchone()[0]
-    rej_ct = conn.execute(
-        "SELECT COUNT(*) FROM reject_rows WHERE run_id = %s AND table_name = 'stg_customers' AND reason_code = 'duplicate_key'",
-        (run_id,),
-    ).fetchone()[0]
-
-    assert int(stg_ct) == 1
-    assert int(rej_ct) == 1
+    assert duplicates == 0  # duplicates explicitly recorded.
 
 
 
-def test_work_table_inherits_defaults_for_created_at(conn) -> None:
-    """
-    Temp table should be filled with defaults on creation
-    and not raise on NULL mismatches.
-    """
 
-    prepare_work_table(conn, table_name="stg_customers")
-
-    run_id = insert_ingest_run(conn, input_path=Path("/tmp/customers.csv"), table_name="stg_customers")
-
-    rows = [
-        WorkRow(
-            source_row=1,
-            raw_payload={"raw": {"Customer Id": "x"}},
-            staging_mapping={
-                "customer_id": "x",
-                "first_name": "A",
-                "last_name": "B",
-                "full_name": "A B",
-                "company": None,
-                "city": None,
-                "country": None,
-                "phone_1": None,
-                "phone_2": None,
-                "email": None,
-                "subscription_date": date(2020, 1, 1),
-                "website": None,
-            },
-        )
-    ]
-
-    # Should not raise `NotNullViolation` on `created_at`
-    insert_work_rows(conn, table_name="stg_customers", run_id=run_id, rows=rows)
-
-    # And `created_at` should be populated by default/
-    ok = conn.execute(
-        "SELECT created_at IS NOT NULL FROM pg_temp._work_stg_customers WHERE run_id = %s LIMIT 1",
-        (run_id,),
-    ).fetchone()[0]
-    assert bool(ok) is True
+    

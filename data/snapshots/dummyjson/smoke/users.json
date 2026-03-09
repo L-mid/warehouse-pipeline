@@ -1,0 +1,21 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "firstName": "Ada",
+      "lastName": "Lovelace",
+      "email": "ada@example.com",
+      "phone": "123-456",
+      "address": {
+        "city": "London",
+        "country": "UK"
+      },
+      "company": {
+        "name": "Analytical Engines Ltd"
+      }
+    }
+  ],
+  "total": 1,
+  "skip": 0,
+  "limit": 100
+}

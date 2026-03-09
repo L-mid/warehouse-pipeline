@@ -9,6 +9,11 @@ zip_cmd.py
 *zip
 
 
+# runtime artifacts
+runs/**
+!runs/.gitkeep
+
+
 # other
 *__pycache__
 .venv

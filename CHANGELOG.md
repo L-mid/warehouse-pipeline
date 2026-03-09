@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## v0.3.0 - 2026-03-09
+### Added
+- Added an HTTP API extractor skeleton for DummyJson + tests.
+- Separations of concerns into respective directories, better skeleton code.
+- Added minimal happy-path stub tests across the new ingestion, orchestration, database, stage, DQ, and publish flows to serve as expansion points later.
+- Added snapshot-based smoke fixtures for fast local and integration test runs.
+- Moved inline transformation data structures into dedicated dataclasses under `warehouse_pipeline.transform`, and updated pipeline outputs to return clearer run summaries for testing and debugging.
+
+### Fixed
+- Directory structure now refactored (especially tests).
+- `sql/` directory now builds tables for DummyJson adjacent fields, not mock data, with clearer file organization into `schema/`, `transform/`, and `publish/`.
+- Separation of inline data structures into appropriate Dataclasses in `warehouse_pipeline/transform` (previously `warehouse`), and now returns a nice summary for tests.
+
+
 ## v0.2.0 - 2026-03-02
 ### Added
 - Sample data `orders.csv` and `order_items.csv` to data pipeline + tests.
