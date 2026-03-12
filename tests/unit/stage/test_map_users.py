@@ -4,7 +4,6 @@ from warehouse_pipeline.extract.models import DummyAddress, DummyCompany, DummyU
 from warehouse_pipeline.stage.map_users import map_users
 
 
-
 def test_map_users_happy_path() -> None:
     """Users maps into `stg_customers` rows and a user lookup."""
     users = [
@@ -31,4 +30,4 @@ def test_map_users_happy_path() -> None:
     assert row.values["full_name"] == "Ada Lovelace"
     assert row.values["email"] == "ada@example.com"
     assert row.values["city"] == "London"
-    assert row.values["country"] == "UK"   
+    assert row.values["country"] == "UK"

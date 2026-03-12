@@ -7,23 +7,26 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
 
       - name: Install
         run: |
           python -m pip install -U pip
           pip install -e ".[dev]"
 
-      - name: Demo + tests
+      - name: Run CI gate
         run: |
-          make demo
+          python scripts/ci_gate.py
 
       - name: Cleanup
         if: always()
         run: |
-          docker compose down -v
+          docker compose down -v || true

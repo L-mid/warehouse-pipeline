@@ -19,7 +19,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=8",
+  "pytest",
+  "ruff",
+  "pyright",
+  "pre-commit",
 ]
 
 [project.scripts]
@@ -33,7 +36,26 @@ markers = [
   "unit: local-only test (no docker, no live http, no external services, offline friendly)",
   "integration: touches external deps (docker/postgres/http/etc.)",
   "heavy_integration: heavy end-to-end tests, some may be flaky",
+  "live_http: performs real HTTP requests",
+  "docker_required: requires local Docker to be installed/usable",
+  "non_ci: tests that are intentionally excluded from CI",
 ]
 
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = ["runs", "src/extra", "tests/extra"]
+force-exclude = true
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pyright]
+include = ["src", "scripts", "tests"]
+exclude = ["runs", "**/__pycache__", "src/extra", "tests/extra"]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+reportMissingImports = true
+reportMissingTypeStubs = false
 
 

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import importlib 
-import pytest
+import importlib
 
 import warehouse_pipeline.cli.commands.run as run_cmd
+
 main_mod = importlib.import_module("warehouse_pipeline.cli.main")
 
 

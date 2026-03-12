@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+import pytest
+
 from warehouse_pipeline.transform.warehouse_build import build_warehouse
 
 
+@pytest.mark.docker_required
 def test_build_warehouse_happy_path(conn) -> None:
-    
+    """Tests transforms from staged tables work and looks like expected."""
+
     # 'run_id' provided
     run_id = uuid4()
-
 
     # init all db tables with stuff to allow building
 
@@ -109,11 +112,9 @@ def test_build_warehouse_happy_path(conn) -> None:
     fact_orders_count = conn.execute("SELECT COUNT(*) FROM fact_orders").fetchone()[0]
     fact_order_items_count = conn.execute("SELECT COUNT(*) FROM fact_order_items").fetchone()[0]
 
-
     assert dim_customer_count == 1
     assert fact_orders_count == 1
     assert fact_order_items_count == 1
-
 
     # precise sql test. example is `fact_orders`
     row = conn.execute(
@@ -124,4 +125,4 @@ def test_build_warehouse_happy_path(conn) -> None:
         """
     ).fetchone()
 
-    assert row == (10, 1, "UK", 25.00)    
+    assert row == (10, 1, "UK", 25.00)

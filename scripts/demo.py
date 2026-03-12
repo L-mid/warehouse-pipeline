@@ -5,10 +5,10 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import LiteralString
 from uuid import UUID
 
 import psycopg
-
 
 DEFAULT_DSN = os.getenv(
     "WAREHOUSE_DSN",
@@ -50,14 +50,12 @@ def run_cmd(cmd: list[str], *, cwd: Path) -> str:
         print(completed.stderr, end="", file=sys.stderr)
 
     if completed.returncode != 0:
-        raise SystemExit(
-            f"Command failed with exit code {completed.returncode}: {' '.join(cmd)}"
-        )
+        raise SystemExit(f"Command failed with exit code {completed.returncode}: {' '.join(cmd)}")
 
     return completed.stdout
 
 
-def fetch_one_value(conn: psycopg.Connection, sql_text: str, params: tuple = ()) -> int:
+def fetch_one_value(conn: psycopg.Connection, sql_text: LiteralString, params: tuple = ()) -> int:
     with conn.cursor() as cur:
         cur.execute(sql_text, params)
         row = cur.fetchone()
@@ -77,7 +75,6 @@ def fetch_run_ledger_count(conn: psycopg.Connection) -> int:
     return int(row[0])
 
 
-
 def fetch_latest_run(conn: psycopg.Connection) -> tuple[UUID, str, str, str | None]:
     with conn.cursor() as cur:
         cur.execute(
@@ -95,7 +92,6 @@ def fetch_latest_run(conn: psycopg.Connection) -> tuple[UUID, str, str, str | No
 
     run_id, status, mode, snapshot_key = row
     return UUID(str(run_id)), str(status), str(mode), snapshot_key
-
 
 
 def main() -> None:

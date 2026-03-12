@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Any, Iterable, Mapping
+from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
 from psycopg import Connection, sql
 
 from warehouse_pipeline.db.dq_results import DQMetricRow, delete_dq_results, upsert_dq_results
 from warehouse_pipeline.db.writers.staging import TABLE_SPECS, StagingTableSpec
-
 
 _Q6 = Decimal("0.000000")  # this one is align with numeric(18,6), for higher precison.
 
@@ -19,12 +17,12 @@ class DQRunSummary:
     """
     Summary of a run's DQ execution.
     """
+
     run_id: UUID
     table_name: str
     metrics_written: int
     failed_metrics: int
-    passed: bool            # for gating later
-
+    passed: bool  # for gating later
 
 
 def _q6(value: Decimal | int | str) -> Decimal:
@@ -207,7 +205,6 @@ def _metric(
     )
 
 
-
 def _build_volume_and_reject_metrics(
     conn: Connection,
     *,
@@ -263,7 +260,6 @@ def _build_volume_and_reject_metrics(
         )
     )
 
-
     rows.append(
         _metric(
             run_id=run_id,
@@ -278,7 +274,6 @@ def _build_volume_and_reject_metrics(
             },
         )
     )
-
 
     rows.append(
         _metric(
@@ -295,7 +290,6 @@ def _build_volume_and_reject_metrics(
             },
         )
     )
-
 
     for reason_code, count in reject_rows_by_reason:
         rows.append(
@@ -316,7 +310,9 @@ def _build_volume_and_reject_metrics(
     return rows
 
 
-def _build_relation_metrics(conn: Connection, *, table_name: str, run_id: UUID) -> list[DQMetricRow]:
+def _build_relation_metrics(
+    conn: Connection, *, table_name: str, run_id: UUID
+) -> list[DQMetricRow]:
     """
     Build table to table relation checks for the tables where they matter.
     """
@@ -341,7 +337,6 @@ def _build_relation_metrics(conn: Connection, *, table_name: str, run_id: UUID) 
             )
         )
 
-
     if table_name == "stg_order_items":
         missing_products = _count_missing_product_items(conn, run_id=run_id)
         orphan_orders = _count_orphan_order_items(conn, run_id=run_id)
@@ -363,7 +358,6 @@ def _build_relation_metrics(conn: Connection, *, table_name: str, run_id: UUID) 
             )
         )
 
-
         rows.append(
             _metric(
                 run_id=run_id,
@@ -384,7 +378,9 @@ def _build_relation_metrics(conn: Connection, *, table_name: str, run_id: UUID) 
     return rows
 
 
-def _build_metrics_for_table(conn: Connection, *, table_name: str, run_id: UUID) -> list[DQMetricRow]:
+def _build_metrics_for_table(
+    conn: Connection, *, table_name: str, run_id: UUID
+) -> list[DQMetricRow]:
     """Build the full set of DQ metric rows for one staged table."""
     if table_name not in TABLE_SPECS:
         allowed = ", ".join(sorted(TABLE_SPECS))
@@ -419,7 +415,6 @@ def run_table_dq(conn: Connection, *, run_id: UUID, table_name: str) -> DQRunSum
         failed_metrics=failed_metrics,
         passed=(failed_metrics == 0),
     )
-
 
 
 def run_stage_dq(conn: Connection, *, run_id: UUID) -> tuple[DQRunSummary, ...]:

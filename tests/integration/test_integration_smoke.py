@@ -1,6 +1,6 @@
-# this file (and other integration) needs docker running and should be skipped 
-# if it can't find it instead of erroring hard
+import pytest
 
+
+@pytest.mark.docker_required
 def test_integration_smoke():
     pass
-

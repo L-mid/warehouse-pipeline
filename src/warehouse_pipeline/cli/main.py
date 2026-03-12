@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
-from uuid import UUID
-        
+
 from warehouse_pipeline.cli.commands.db import register_db_commands
 from warehouse_pipeline.cli.commands.run import register_run_commands
 
@@ -24,12 +22,12 @@ def main(argv: list[str] | None = None) -> int:
     A CLI for loading and staging data into a Postgres database.
 
     Supported commands are:
-    - `run`,    exercises the pipeline. 
-    - `db`,     database interactions.   
+    - `run`,    exercises the pipeline.
+    - `db`,     database interactions.
 
     A results summary will print in the terminal upon completion of a command.
 
-    
+
 
     ### Example usage:
     #### initalize the database to yourself locally.
@@ -38,13 +36,12 @@ def main(argv: list[str] | None = None) -> int:
     #### run the pipeline on a saved snapshot of pre-extracted DummyJson.
     `pipeline run --mode snapshot --snapshot v1`
 
-    #### smoke the pipeline fast on a stable mock extraction.  
+    #### smoke the pipeline fast on a stable mock extraction.
     `pipeline run --mode snapshot --snapshot smoke`
 
     #### extract from `DummyJson` live and run the pipeline on that (requires internet).
     `pipeline run --mode live`
     """
-
 
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -54,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 2
 
-    return int(handler(args))   # handlers are responsible for returning their `int` ONLY
+    return int(handler(args))  # handlers are responsible for returning their `int` ONLY
 
 
 if __name__ == "__main__":

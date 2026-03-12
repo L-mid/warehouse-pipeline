@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, LiteralString, cast
 
 from psycopg import Connection
 
 from warehouse_pipeline.db.sql_runner import run_sql_file
-
 
 DEFAULT_PUBLISH_SQL_DIR = Path(__file__).resolve().parents[3] / "sql" / "publish"
 DEFAULT_METRICS_SQL_DIR = DEFAULT_PUBLISH_SQL_DIR / "metrics"
@@ -20,9 +19,9 @@ class PublishResult:
     """
     Summary of what happened when applying the publish view.
     """
+
     files_ran: tuple[str, ...]
     metrics_available: tuple[str, ...]
-
 
 
 @dataclass(frozen=True)
@@ -30,10 +29,10 @@ class MetricQueryResult:
     """
     Results of a single named metric SQL query.
     """
+
     name: str
     columns: tuple[str, ...]
     rows: tuple[dict[str, Any], ...]
-
 
 
 def _resolve_publish_dir(sql_dir: Path | None = None) -> Path:
@@ -43,7 +42,7 @@ def _resolve_publish_dir(sql_dir: Path | None = None) -> Path:
         raise FileNotFoundError(f"publish SQL dir does not exist: {resolved}")
     if not resolved.is_dir():
         raise NotADirectoryError(f"publish SQL path is not a directory: {resolved}")
-    
+
     return resolved
 
 
@@ -55,6 +54,7 @@ def _resolve_views_file(sql_dir: Path | None = None) -> Path:
         raise FileNotFoundError(f"publish views SQL file does not exist: {path}")
     return path
 
+
 def _resolve_metrics_dir(metrics_dir: Path | None = None) -> Path:
     """Resolves and validates the metric query SQL directory."""
     resolved = (metrics_dir or DEFAULT_METRICS_SQL_DIR).resolve()
@@ -62,7 +62,7 @@ def _resolve_metrics_dir(metrics_dir: Path | None = None) -> Path:
         raise FileNotFoundError(f"publish metrics dir does not exist: {resolved}")
     if not resolved.is_dir():
         raise NotADirectoryError(f"publish metrics path is not a directory: {resolved}")
-    
+
     return resolved
 
 
@@ -70,7 +70,6 @@ def _metric_files(metrics_dir: Path | None = None) -> tuple[Path, ...]:
     """Return all `.sql` metric files using for views in ASC order."""
     directory = _resolve_metrics_dir(metrics_dir)
     return tuple(sorted(directory.glob("*.sql")))
-
 
 
 def _resolve_metric_path(name: str, metrics_dir: Path | None = None) -> Path:
@@ -97,10 +96,9 @@ def list_metric_queries(metrics_dir: Path | None = None) -> tuple[str, ...]:
     return tuple(path.stem for path in _metric_files(metrics_dir))
 
 
-
 def apply_views(conn: Connection, *, sql_dir: Path | None = None) -> PublishResult:
     """
-    Creates and applies the SQL view layer from the `sql/publish/900_views.sql`. 
+    Creates and applies the SQL view layer from the `sql/publish/900_views.sql`.
     Returns the result of what happened in `PublishResult`.
     """
     views_file = _resolve_views_file(sql_dir)
@@ -110,7 +108,6 @@ def apply_views(conn: Connection, *, sql_dir: Path | None = None) -> PublishResu
         files_ran=(views_file.name,),
         metrics_available=list_metric_queries(),
     )
-
 
 
 def run_metric_query(
@@ -128,6 +125,7 @@ def run_metric_query(
     sql_text = path.read_text(encoding="utf-8")
 
     with conn.cursor() as cur:
+        sql_text = cast(LiteralString, sql_text)
         cur.execute(sql_text)
         fetched_rows = cur.fetchall()
 
@@ -137,14 +135,10 @@ def run_metric_query(
             rows: tuple[dict[str, Any], ...] = ()
         else:
             columns = tuple(desc.name for desc in cur.description)
-            rows = tuple(dict(zip(columns, row)) for row in fetched_rows)
-
+            rows = tuple(dict(zip(columns, row, strict=True)) for row in fetched_rows)
 
     return MetricQueryResult(
         name=path.stem,
         columns=columns,
         rows=rows,
     )
-
-
-

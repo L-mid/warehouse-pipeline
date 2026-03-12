@@ -15,14 +15,14 @@ from warehouse_pipeline.transform.warehouse_build import WarehouseBuildResult
 
 def test_run_pipeline_happy_path(tmp_path, monkeypatch) -> None:
     """
-    Unit, we mock everything, 
+    Unit, we mock everything,
     and make sure that it produces a `RunManifest` return that contains expected.
     """
 
-    conn = FakeConnection()     # mock
+    conn = FakeConnection()  # mock
     # random `run_id`
     run_id = UUID("00000000-0000-0000-0000-000000000444")
-    
+
     # everything that should be called goes in here
     # note: order indifferent (might want to fix that)
     seen: dict[str, object] = {}
@@ -31,16 +31,16 @@ def test_run_pipeline_happy_path(tmp_path, monkeypatch) -> None:
 
     # connect, make run
     monkeypatch.setattr(runner_mod, "connect", lambda database_url=None: conn)
-    
+
     monkeypatch.setattr(runner_mod, "create_run", lambda got_conn, entry: run_id)
-    
+
     # markers
     monkeypatch.setattr(
         runner_mod,
         "mark_run_succeeded",
         lambda got_conn, *, run_id: seen.setdefault("marked_succeeded", run_id),
     )
-    
+
     monkeypatch.setattr(
         runner_mod,
         "mark_run_failed",
@@ -68,8 +68,8 @@ def test_run_pipeline_happy_path(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(runner_mod, "map_users", lambda users: MappedUsers())
 
     monkeypatch.setattr(runner_mod, "map_products", lambda products: MappedProducts())
-    
-    monkeypatch.setattr(runner_mod, "map_carts", lambda carts, **kwargs: MappedCarts())   
+
+    monkeypatch.setattr(runner_mod, "map_carts", lambda carts, **kwargs: MappedCarts())
 
     # load le stuffs
     # example used is `stg_customers` ONLY
@@ -97,10 +97,10 @@ def test_run_pipeline_happy_path(tmp_path, monkeypatch) -> None:
                 failed_metrics=0,
                 passed=True,
             ),
-        )   
-    
+        )
+
     monkeypatch.setattr(runner_mod, "run_stage_dq", fake_run_stage_dq)
-    
+
     # dq gates
     monkeypatch.setattr(
         runner_mod,
@@ -122,7 +122,7 @@ def test_run_pipeline_happy_path(tmp_path, monkeypatch) -> None:
             files_ran=("100_dim_customer.sql",),
             run_id=run_id,
         ),
-    )    
+    )
 
     monkeypatch.setattr(
         runner_mod,
@@ -140,9 +140,10 @@ def test_run_pipeline_happy_path(tmp_path, monkeypatch) -> None:
         snapshot_root=tmp_path / "snapshots" / "smoke",
         runs_root=tmp_path / "runs",
     )
-    
-    manifest = runner_mod.run_pipeline(spec, database_url="postgresql://unit-test")     # custom mock transaction
 
+    manifest = runner_mod.run_pipeline(
+        spec, database_url="postgresql://unit-test"
+    )  # custom mock transaction
 
     assert manifest.status == "succeeded"
     assert seen["dq_called"] is True

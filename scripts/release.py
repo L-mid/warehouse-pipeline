@@ -3,7 +3,6 @@ import re
 from datetime import date
 from pathlib import Path
 
-
 PYPROJECT = Path("pyproject.toml")
 CHANGELOG = Path("CHANGELOG.md")
 
@@ -15,14 +14,16 @@ def strip_v(tag: str) -> str:
 
 def bump_pyproject_version(new_version: str) -> None:
     """
-    Automatic replace version in `pyproject.toml` on update. 
+    Automatic replace version in `pyproject.toml` on update.
     Fail if more than one version line encountered.
     """
     text = PYPROJECT.read_text(encoding="utf-8")
     # expects: version = "0.0.0"
-    new_text, n = re.subn(r'(?m)^version\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"\s*$', f'version = "{new_version}"', text)
+    new_text, n = re.subn(
+        r'(?m)^version\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"\s*$', f'version = "{new_version}"', text
+    )
     if n != 1:
-        raise SystemExit("pyproject.toml: expected exactly one version = \"x.y.z\" line")
+        raise SystemExit('pyproject.toml: expected exactly one version = "x.y.z" line')
     PYPROJECT.write_text(new_text, encoding="utf-8")
 
 
@@ -33,7 +34,7 @@ def update_changelog(tag: str) -> None:
     today = date.today().isoformat()
     text = CHANGELOG.read_text(encoding="utf-8")
 
-    if f"## {tag}" in text:     # fail on duplicate tags.
+    if f"## {tag}" in text:  # fail on duplicate tags.
         raise SystemExit(f"CHANGELOG already contains {tag}")
 
     marker = "## Unreleased\n"

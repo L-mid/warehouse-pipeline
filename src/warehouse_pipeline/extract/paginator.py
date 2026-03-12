@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Generic, TypeVar
-
+from typing import Generic, TypeVar
 
 PageT = TypeVar("PageT")
 ItemT = TypeVar("ItemT")
@@ -11,6 +11,7 @@ ItemT = TypeVar("ItemT")
 @dataclass(frozen=True)
 class PaginationResult(Generic[ItemT]):
     """Overview of result after injestion."""
+
     items: list[ItemT]
     total: int
     pages_fetched: int
@@ -43,7 +44,7 @@ def fetch_all_pages(
     seen_skips: set[int] = set()
     pages_fetched = 0
     next_skip = 0
-    stable_total: int | None = None   
+    stable_total: int | None = None
 
     while True:
         if pages_fetched >= max_pages:
@@ -51,7 +52,7 @@ def fetch_all_pages(
         if next_skip in seen_skips:
             raise RuntimeError(f"Paginator saw repeated skip={next_skip}")
 
-        seen_skips.add(next_skip)     # set method. watch it in memory.
+        seen_skips.add(next_skip)  # set method. watch it in memory.
 
         page = fetch_page(page_size, next_skip)
         page_items = list(get_items(page))
@@ -63,12 +64,9 @@ def fetch_all_pages(
         if stable_total is None:
             stable_total = page_total
         elif page_total != stable_total:
-            raise RuntimeError(
-                f"Total changed across pages: {stable_total} to {page_total}"
-            )
-        
+            raise RuntimeError(f"Total changed across pages: {stable_total} to {page_total}")
 
-        all_items.extend(page_items)        # add all items
+        all_items.extend(page_items)  # add all items
         pages_fetched += 1
 
         # breaks
@@ -77,11 +75,9 @@ def fetch_all_pages(
         if len(all_items) >= stable_total:
             break
 
-        next_skip = page_skip + page_limit  
-
+        next_skip = page_skip + page_limit
 
     total = stable_total if stable_total is not None else len(all_items)
-
 
     # Trim in case an API returns too much.
     return PaginationResult(
@@ -90,4 +86,3 @@ def fetch_all_pages(
         pages_fetched=pages_fetched,
         page_size=page_size,
     )
-

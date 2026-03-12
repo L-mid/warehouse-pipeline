@@ -12,7 +12,6 @@ from warehouse_pipeline.extract.bundles import (
 from warehouse_pipeline.extract.dummyjson_client import DummyJsonClient
 
 
-
 def extract_dummyjson_snapshots(
     *,
     snapshot_root: Path,
@@ -43,6 +42,3 @@ __all__ = [
     "snapshot_root_for_key",
     "write_snapshot_bundle",
 ]
-
-
-

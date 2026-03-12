@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+from typing import cast
 from uuid import uuid4
+
+import psycopg
 
 from tests.unit.db.mocks import FakeConnection
 from warehouse_pipeline.db.writers.rejects import RejectInsert, insert_reject_rows
 
 
-
 def test_insert_reject_rows_happy_path() -> None:
     """A reject row inserts in successfully."""
-    conn = FakeConnection()
+    fake_conn = FakeConnection()
+    conn = cast(psycopg.Connection[tuple], fake_conn)
     run_id = uuid4()
 
     # inserts a good reject row
@@ -27,11 +30,8 @@ def test_insert_reject_rows_happy_path() -> None:
         ],
     )
 
-    assert n == 1       # one call. 
+    assert n == 1  # one call.
 
-
-    calls = [call for call in conn.calls if call[0] == "cursor.executemany"]    # correct call
+    calls = [call for call in fake_conn.calls if call[0] == "cursor.executemany"]  # correct call
     assert len(calls) == 1
     assert len(calls[0][2]) == 1
-
-    

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import cast
 from uuid import uuid4
+
+import psycopg
 
 import warehouse_pipeline.db.work_tables as work_tables_mod
 from tests.unit.db.mocks import FakeConnection
@@ -10,16 +13,17 @@ from warehouse_pipeline.db.writers.staging import StagingTableSpec
 
 def test_work_table_happy_path(monkeypatch) -> None:
     """
-    A temporary working table is created with good rows, 
+    A temporary working table is created with good rows,
     runs dedupe logic, and flushes results to the real staging table.
     """
 
     conn = FakeConnection(fetchone_rows=[(1, 0)])
+    conn = cast(psycopg.Connection[tuple], conn)
     run_id = uuid4()
 
     # gives it a fake spec
     # used example is `stg_orders`
-    spec = StagingTableSpec(
+    _ = StagingTableSpec(
         table_name="stg_orders",
         columns=(
             "order_id",
@@ -71,8 +75,3 @@ def test_work_table_happy_path(monkeypatch) -> None:
     assert inserted_into_work == 1
     assert inserted == 1
     assert duplicates == 0  # duplicates explicitly recorded.
-
-
-
-
-    

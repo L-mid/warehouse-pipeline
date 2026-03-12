@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from warehouse_pipeline.db.run_ledger import RunStart, create_run
 from warehouse_pipeline.extract.models import (
     parse_carts_page,
@@ -12,6 +14,7 @@ from warehouse_pipeline.stage.map_products import map_products
 from warehouse_pipeline.stage.map_users import map_users
 
 
+@pytest.mark.docker_required
 def test_stage_happy_path(conn) -> None:
     """
     This is the idea
@@ -53,7 +56,6 @@ def test_stage_happy_path(conn) -> None:
         }
     )
 
-
     carts_page = parse_carts_page(
         {
             "carts": [
@@ -70,7 +72,7 @@ def test_stage_happy_path(conn) -> None:
                             "quantity": 2,
                             "price": 4.99,
                             "total": 9.98,
-                            "discountedPrice": 7.48,
+                            "discountedTotal": 7.48,
                         }
                     ],
                 }
@@ -80,7 +82,6 @@ def test_stage_happy_path(conn) -> None:
             "limit": 100,
         }
     )
-
 
     mapped_users = map_users(users_page.users)
     mapped_products = map_products(products_page.products)
@@ -99,7 +100,6 @@ def test_stage_happy_path(conn) -> None:
         products=mapped_products,
         carts=mapped_carts,
     )
-
 
     assert results["stg_customers"].inserted_count == 1
     assert results["stg_products"].inserted_count == 1
@@ -125,8 +125,7 @@ def test_stage_happy_path(conn) -> None:
     reject_count = conn.execute(
         "SELECT COUNT(*) FROM reject_rows WHERE run_id = %s",
         (run_id,),
-    ).fetchone()[0]    
-
+    ).fetchone()[0]
 
     # one row expected per
     assert customer_count == 1
@@ -134,4 +133,4 @@ def test_stage_happy_path(conn) -> None:
     # including here from carts:
     assert order_count == 1
     assert item_count == 1
-    assert reject_count == 0 # all rows were ok
+    assert reject_count == 0  # all rows were ok

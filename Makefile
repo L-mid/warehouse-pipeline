@@ -33,3 +33,34 @@ print('Usage: make release VERSION=v0.1.0') or sys.exit(2) if not v else None" "
 	git commit -m "tag: release $(VERSION)"
 	git tag "$(VERSION)"
 	@echo "Tagged $(VERSION). Next: git push && git push --tags"
+
+
+	
+## formatting and extras
+
+PY := python
+
+fmt:
+	ruff check --fix .
+	ruff format .
+
+lint:
+	ruff check .
+
+format-check:
+	ruff format --check .
+
+typecheck:
+	pyright
+
+test:
+	pytest
+
+test-ci:
+	CI=true pytest -m "not non_ci"
+
+ci:
+	$(PY) scripts/ci_gate.py
+
+install-hooks:
+	pre-commit install --hook-type pre-commit --hook-type pre-push

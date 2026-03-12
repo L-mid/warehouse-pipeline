@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any
 from uuid import UUID
 
 from psycopg import Connection, sql
@@ -24,14 +25,13 @@ class WorkRow:
     values: Mapping[str, Any]
 
 
-
 def prepare_work_table(conn: Connection, *, table_name: str) -> None:
     """
     Create a temporary work table mirroring the target staging table.
     Also includes injected in `source_ref` and `raw_payload`.
 
     This temp table is scoped to the DB session only.
-    """   
+    """
     spec = get_staging_spec(table_name)
     work = sql.Identifier(spec.work_table_name)
     staging = sql.Identifier(spec.table_name)
@@ -45,35 +45,27 @@ def prepare_work_table(conn: Connection, *, table_name: str) -> None:
         )
         # has all the same cols as real
         cur.execute(
-            sql.SQL(
-                "CREATE TEMP TABLE {work} ("
-                "LIKE {staging} INCLUDING DEFAULTS"
-                ")"
-            ).format(
+            sql.SQL("CREATE TEMP TABLE {work} (LIKE {staging} INCLUDING DEFAULTS)").format(
                 work=work,
                 staging=staging,
             )
         )
 
-
-
         # These are required for duplicate rejection later.
-        
+
         # add `raw_payload` for rejects.
         cur.execute(
-            sql.SQL("ALTER TABLE {work} ADD COLUMN IF NOT EXISTS raw_payload jsonb NOT NULL;").format(
-                work=work
-            )
+            sql.SQL(
+                "ALTER TABLE {work} ADD COLUMN IF NOT EXISTS raw_payload jsonb NOT NULL;"
+            ).format(work=work)
         )
 
         # add `source_ref` for deterministic dup rejection logic later
         cur.execute(
-            sql.SQL("ALTER TABLE {work} ADD COLUMN IF NOT EXISTS source_ref integer NOT NULL;").format(
-                work=work
-            )
+            sql.SQL(
+                "ALTER TABLE {work} ADD COLUMN IF NOT EXISTS source_ref integer NOT NULL;"
+            ).format(work=work)
         )
-
-
 
 
 def insert_work_rows(
@@ -82,7 +74,7 @@ def insert_work_rows(
     table_name: str,
     run_id: UUID,
     rows: Sequence[WorkRow],
-) -> None:
+) -> int:
     """
     Inserts parsed rows accepted for staging into the work table.
 
@@ -92,9 +84,9 @@ def insert_work_rows(
     if not rows:
         return 0
 
-    spec = get_staging_spec(table_name)             # all table specs to be fetched from this wrap only
+    spec = get_staging_spec(table_name)  # all table specs to be fetched from this wrap only
     # all cols only acceptable if derived from spec
-    cols = ("run_id",) + spec.columns + ("source_ref", "raw_payload")          
+    cols = ("run_id",) + spec.columns + ("source_ref", "raw_payload")
 
     # interpolating table and fields in now only after derivation from ok spec
     query = sql.SQL("INSERT INTO {work} ({cols}) VALUES ({vals})").format(
@@ -108,11 +100,11 @@ def insert_work_rows(
     for r in rows:
         values: list[Any] = [run_id]
 
-        # staging the cols 
+        # staging the cols
         for c in spec.columns:
             values.append(r.values.get(c))
 
-        # inject in `source_ref` 
+        # inject in `source_ref`
         values.append(r.source_ref)
 
         # `raw_payload` injection
@@ -126,8 +118,6 @@ def insert_work_rows(
     return len(params)
 
 
-
-    
 def flush_work_table(conn: Connection, *, table_name: str, run_id: UUID) -> tuple[int, int]:
     """
     Deduplicate the work table into staging and emit duplicate rejects.
@@ -157,7 +147,6 @@ def flush_work_table(conn: Connection, *, table_name: str, run_id: UUID) -> tupl
 
     # handles exact rejection behaviour if dup rejections are found
     duplicate_detail_expr = _duplicate_reason_detail_expr(spec)
-
 
     # select ranked winner by `source_ref` ASC, and inject in `source_ref` and rejects.
     query = sql.SQL(
@@ -212,17 +201,18 @@ def flush_work_table(conn: Connection, *, table_name: str, run_id: UUID) -> tupl
         duplicate_detail_expr=duplicate_detail_expr,
     )
 
-
     row = conn.execute(query, (run_id, table_name)).fetchone()
-    assert row is not None                      # empty row not allowed
-    inserted_count, duplicate_count = row       # full row
-    
+    assert row is not None  # empty row not allowed
+    inserted_count, duplicate_count = row  # full row
+
     return int(inserted_count), int(duplicate_count)
 
 
-
 def _duplicate_reason_detail_expr(spec: StagingTableSpec) -> sql.Composable:
-    """Returns an SQL expression for `reject_rows.reason_detail` on duplicate keys for good injection."""
+    """
+    Returns an SQL expression for `reject_rows.reason_detail` 
+    on duplicate keys for good injection.
+    """
     parts: list[sql.Composable] = []
     # specially formatted return values in this case
     for c in spec.key_cols:
@@ -233,7 +223,6 @@ def _duplicate_reason_detail_expr(spec: StagingTableSpec) -> sql.Composable:
             )
         )
 
-
     # preformate parts to paramaterize in
     if len(parts) == 1:
         joined = parts[0]
@@ -243,6 +232,3 @@ def _duplicate_reason_detail_expr(spec: StagingTableSpec) -> sql.Composable:
         )
 
     return sql.SQL("concat('duplicate key: ', {joined})").format(joined=joined)
-
-
-

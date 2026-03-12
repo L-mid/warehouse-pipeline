@@ -14,7 +14,7 @@ def test_client_retries_429_then_succeeds() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         """Returns a useable `httpx.Response` to actually injest from."""
-        
+
         calls["count"] += 1
 
         if calls["count"] == 1:
@@ -47,7 +47,6 @@ def test_client_retries_429_then_succeeds() -> None:
         transport=httpx.MockTransport(handler),
     )
 
-    
     # retrier logic
     client = DummyJsonClient(
         client=http_client,
@@ -59,5 +58,5 @@ def test_client_retries_429_then_succeeds() -> None:
     page = client.get_users_page(limit=1, skip=0)
 
     assert page.users[0].id == 1
-    assert calls["count"] == 2      # one on `Retry-After`, another retry after. 
-                                    # no more, no less
+    assert calls["count"] == 2  # one on `Retry-After`, another retry after.
+    # no more, no less

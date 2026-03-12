@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import LiteralString, cast
 
 import sqlparse
 from psycopg import Connection
-import psycopg
-
 
 
 @dataclass(frozen=True)
@@ -15,7 +14,7 @@ class SqlExecutionError(RuntimeError):
     """
     Raised when an SQL file fails on any given specific statement.
 
-    Contains derived info from parsing. 
+    Contains derived info from parsing.
     `__str__` returns formatted debugging information.
     """
 
@@ -33,14 +32,19 @@ class SqlExecutionError(RuntimeError):
             f"--- end failing statement ---"
         )
 
-# better splitter 
+
+def _trusted_sql(stmt: str) -> LiteralString:
+    """Mark SQL loaded from repo-owned migration files as trusted for typing."""
+    return cast(LiteralString, stmt)  # cast to `LiteralString`
+
+
+# better splitter
 def split_sql_statements(sql_text: str) -> list[str]:
     """
     Split a SQL script into individual executable statements.
     """
-    # sqlparse 
+    # sqlparse
     return [stmt.strip() for stmt in sqlparse.split(sql_text) if stmt.strip()]
-
 
 
 def run_sql_text(conn: Connection, *, sql_text: str, source: str = "<memory>") -> None:
@@ -57,10 +61,11 @@ def run_sql_text(conn: Connection, *, sql_text: str, source: str = "<memory>") -
         return
 
     with conn.cursor() as cur:
-        cur.execute("SAVEPOINT sqlrunner_file") # for atomic saving
+        cur.execute("SAVEPOINT sqlrunner_file")  # for atomic saving
 
         for idx, statement in enumerate(statements, start=1):
             try:
+                statement = _trusted_sql(statement)
                 cur.execute(statement)
             except Exception as exc:
                 cur.execute("ROLLBACK TO SAVEPOINT sqlrunner_file")
@@ -71,7 +76,7 @@ def run_sql_text(conn: Connection, *, sql_text: str, source: str = "<memory>") -
                     original_error=str(exc),
                 ) from exc
 
-        cur.execute("RELEASE SAVEPOINT sqlrunner_file") # remove savepoints
+        cur.execute("RELEASE SAVEPOINT sqlrunner_file")  # remove savepoints
 
 
 def run_sql_file(conn: Connection, path: Path) -> None:
@@ -79,16 +84,18 @@ def run_sql_file(conn: Connection, path: Path) -> None:
     sql_text = path.read_text(encoding="utf-8")
     run_sql_text(conn, sql_text=sql_text, source=str(path))
 
+
 def run_sql_files(conn: Connection, paths: Iterable[Path]) -> None:
     """Execute multiple SQL files in the exact provided order."""
     for path in paths:
         run_sql_file(conn, path)
 
+
 def run_sql_dir(conn: Connection, directory: Path, *, glob: str = "*.sql") -> None:
     """
     Execute all SQL files in a directory in ASC filename order.
     """
-    paths = sorted(directory.glob(glob))    # sql only by default
+    paths = sorted(directory.glob(glob))  # sql only by default
     if not paths:
         raise FileNotFoundError(f"No SQL files matched {glob!r} in {directory}")
     run_sql_files(conn, paths)

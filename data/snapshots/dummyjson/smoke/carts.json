@@ -13,7 +13,7 @@
           "quantity": 2,
           "price": 4.99,
           "total": 9.98,
-          "discountedPrice": 9.98
+          "discountedTotal": 9.98
         }
       ]
     }

@@ -7,7 +7,12 @@ from uuid import UUID
 
 from psycopg import Connection
 
-from warehouse_pipeline.db.work_tables import WorkRow, flush_work_table, insert_work_rows, prepare_work_table
+from warehouse_pipeline.db.work_tables import (
+    WorkRow,
+    flush_work_table,
+    insert_work_rows,
+    prepare_work_table,
+)
 from warehouse_pipeline.db.writers.rejects import RejectInsert, insert_reject_rows
 from warehouse_pipeline.stage import (
     MappedCarts,
@@ -18,7 +23,6 @@ from warehouse_pipeline.stage import (
     StageTableLoadResult,
 )
 
-
 # specified order in which to load tables.
 _TABLE_LOAD_ORDER = (
     "stg_customers",
@@ -26,8 +30,8 @@ _TABLE_LOAD_ORDER = (
     "stg_orders",
     "stg_order_items",
 )
- 
-   
+
+
 def _as_work_rows(rows: Sequence[StageRow]) -> list[WorkRow]:
     """Valid work row."""
     return [
@@ -77,7 +81,6 @@ def load_stage_rows(
     for reject in reject_list:
         explicit_reject_counts[reject.table_name] += 1
 
-
     if reject_list:
         insert_reject_rows(conn, run_id=run_id, rejects=_as_reject_inserts(reject_list))
 
@@ -92,7 +95,9 @@ def load_stage_rows(
 
         if table_rows:
             prepare_work_table(conn, table_name=table_name)
-            insert_work_rows(conn, table_name=table_name, run_id=run_id, rows=_as_work_rows(table_rows))
+            insert_work_rows(
+                conn, table_name=table_name, run_id=run_id, rows=_as_work_rows(table_rows)
+            )
             inserted_count, duplicate_reject_count = cast(
                 tuple[int, int],
                 flush_work_table(conn, table_name=table_name, run_id=run_id),
@@ -108,7 +113,6 @@ def load_stage_rows(
     return results
 
 
-
 def load_mapped_batches(
     conn: Connection,
     *,
@@ -117,7 +121,7 @@ def load_mapped_batches(
     products: MappedProducts,
     carts: MappedCarts,
 ) -> dict[str, StageTableLoadResult]:
-    """A convenience wrapper for loading the three standard `DummyJSON` stage batches and `reject_rows` all at once."""
+    """Convenience wrapper for loading the `DummyJSON` stage batches and `reject_rows`."""
     all_rows: list[StageRow] = [
         *users.rows,
         *products.rows,

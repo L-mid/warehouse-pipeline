@@ -23,12 +23,11 @@ def test_map_carts_happy_path() -> None:
                     quantity=2,
                     price=4.99,
                     total=9.98,
-                    discountedPrice=7.48,
+                    discountedTotal=7.48,
                 )
             ],
         )
     ]
-
 
     product_lookup = {
         10: ProductLookupItem(
@@ -48,7 +47,6 @@ def test_map_carts_happy_path() -> None:
             email="ada@example.com",
         )
     }
-
 
     mapped = map_carts(carts, product_lookup=product_lookup, user_lookup=user_lookup)
 

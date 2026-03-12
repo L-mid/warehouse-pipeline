@@ -8,14 +8,12 @@ from warehouse_pipeline.orchestration.contract import RunManifest
 from warehouse_pipeline.orchestration.manifest import write_manifest
 
 
-
 def test_write_manifest_happy_path(tmp_path) -> None:
     # random `run_id``
     run_id = UUID("00000000-0000-0000-0000-000000000333")
 
-
     manifest = RunManifest(
-        # give it everything 
+        # give it everything
         run_id=run_id,
         mode="snapshot",
         status="succeeded",
@@ -35,14 +33,11 @@ def test_write_manifest_happy_path(tmp_path) -> None:
     )
 
     path = write_manifest(run_dir=tmp_path / "run-1", manifest=manifest)
-    
+
     # load it up
     payload = json.loads(path.read_text(encoding="utf-8"))
 
     assert path.name == "manifest.json"
     assert payload["run_id"] == str(run_id)
     assert payload["status"] == "succeeded"
-    assert payload["extract"]["counts"]["users"] == 1       # specific nested example 
-
-
-
+    assert payload["extract"]["counts"]["users"] == 1  # specific nested example

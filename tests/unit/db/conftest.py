@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import pytest
+
 from tests.unit.db.mocks import FakeConnection
 
-import pytest
 
 @pytest.fixture()
 def fake_conn() -> FakeConnection:
