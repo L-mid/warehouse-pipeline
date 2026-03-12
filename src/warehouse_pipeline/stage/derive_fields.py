@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
-
 
 _Q2 = Decimal("0.01")
 _Q4 = Decimal("0.0001")
@@ -18,12 +17,14 @@ def normalize_text(value: str | None) -> str | None:
     value = value.strip()
     return value or None
 
+
 def normalize_email(value: str | None) -> str | None:
     """Normalize email casing while preserving `None` for missing values."""
     value = normalize_text(value)
     if value is None:
         return None
     return value.lower()
+
 
 def to_decimal(value: Any) -> Decimal | None:
     """Convert numeric-ish input to `Decimal` via `str()`."""
@@ -41,12 +42,14 @@ def quantize_money(value: Any) -> Decimal | None:
         return None
     return dec.quantize(_Q2, rounding=ROUND_HALF_UP)
 
+
 def quantize_pct(value: Any) -> Decimal | None:
     """Quantize percentage values to numeric(8,4)-like precision."""
     dec = to_decimal(value)
     if dec is None:
         return None
     return dec.quantize(_Q4, rounding=ROUND_HALF_UP)
+
 
 def derive_full_name(first_name: str | None, last_name: str | None) -> str | None:
     """Build a full name from first/last name components."""
@@ -67,6 +70,7 @@ def slugify(value: str | None) -> str:
     text = re.sub(r"-+", "-", text).strip("-")
     return text or "unknown"
 
+
 def derive_sku(*, product_id: int, category: str | None, title: str | None) -> str:
     """Build a deterministic SKU from stable product attributes."""
     return f"SKU-{slugify(category)}-{slugify(title)}-{product_id}"
@@ -86,7 +90,7 @@ def derive_order_status(*, cart_id: int, total_products: int, total_quantity: in
     if total_products == 0 or total_quantity == 0:
         return "canceled"
 
-    bucket = cart_id % 20   # slice
+    bucket = cart_id % 20  # slice
     if bucket == 0:
         return "refunded"
     if bucket in (1, 2, 3):
@@ -97,7 +101,7 @@ def derive_order_status(*, cart_id: int, total_products: int, total_quantity: in
 def derive_order_ts(*, cart_id: int, user_id: int) -> datetime:
     """
     Derive a deterministic timestamp when the source lacks a real one.
-    Stable across reruns of the same snapshot 
+    Stable across reruns of the same snapshot
     """
     day_offset = cart_id % 365
     minute_offset = ((user_id * 17) + cart_id) % (24 * 60)
@@ -152,3 +156,13 @@ def derive_net_usd(
     pct = to_decimal(discount_pct) or Decimal("0")
     net = gross * (Decimal("1") - pct)
     return quantize_money(net) or Decimal("0.00")
+
+
+def derive_product_discount_fraction(value: float | None) -> Decimal | None:
+    """
+    Convert an upstream percentage like `12.96` into a stage fraction `0.1296`.
+    """
+    dec = to_decimal(value)
+    if dec is None:
+        return None
+    return quantize_pct(dec / Decimal("100"))

@@ -1,6 +1,15 @@
 # Changelog
 
 ## Unreleased
+### Added
+- New live mode test that broadly tests results from live http requests off dummy json.
+- CI marker `non_ci` to avoid CI testing certain tests (such as the live http one).
+
+### Fixed
+- Live mode bug where a `NotImplementedError` was being raised on the path despite being implemented.
+- Docker no longer errors hard on tests when unavailble, now skips via fixutres (finally).
+- Linters, type checkers, and formatting no longer disabled and now required on pre-commit.
+- Minor typing and line length fixes everywhere to make ruff and pyright checks finally pass.
 
 ## v0.3.0 - 2026-03-09
 ### Added
@@ -23,13 +32,13 @@
 - Working/temp table behavioural tests under `tests/unit/db`
 - `warehouse` cmd and a post staging data transformation pipeline.
 - New `.sql` views under `sql/extras` using tables created with the new transformation pipeline. Also added goldens tests (`integration/extras`) that assert exact rows for exact data to ensure correctness for this pipeline over updates.
-- Two more extra SQL queries under `sql/extras`, one to demonstrate distinct functionality and other for an incorrect vs correct fanout, fanout 
+- Two more extra SQL queries under `sql/extras`, one to demonstrate distinct functionality and other for an incorrect vs correct fanout, fanout
 emphasized (a test showing the fanout principle + a `fanout_trap.md`).
 ### Fixed
 - DB initalizing SQL statement riser now raises much more information on error
 - Fields in data quality checks now derive from the same unified `TABLESPEC` as in the row parser.
 - 'init `sql` else parse single file' bug was parsing above iterator instead of provided file in `main.py`.
-- Fixed casing oversight where values could not be standardized to a specific casing, implementations to do so now exist in `RowParser` (default across all fields) and in `FieldSpec` (custom per value override). 
+- Fixed casing oversight where values could not be standardized to a specific casing, implementations to do so now exist in `RowParser` (default across all fields) and in `FieldSpec` (custom per value override).
 - Fixed queries under `sql/extras` to new casing expectations.
 
 
@@ -42,5 +51,3 @@ emphasized (a test showing the fanout principle + a `fanout_trap.md`).
 - DB connection issues on Windows with defaulting to pre-set global vars.
 - Minor config expectation issues in the loader with `reject_reasons`.
 - tons of minor glue code connection bootstrap repo development things that come from starting a new repo
-
-

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from warehouse_pipeline.extract.models import DummyCart
 from warehouse_pipeline.stage import MappedCarts, ProductLookup, StageReject, StageRow, UserLookup
@@ -12,7 +12,6 @@ from warehouse_pipeline.stage.derive_fields import (
     derive_order_ts,
     quantize_money,
 )
-
 
 
 def map_carts(
@@ -32,8 +31,7 @@ def map_carts(
     order_rows: list[StageRow] = []
     order_item_rows: list[StageRow] = []
     rejects: list[StageReject] = []
-    line_source_ref = 0    
-
+    line_source_ref = 0
 
     for order_source_ref, cart in enumerate(carts, start=1):
         raw_cart = cart.model_dump(mode="python")
@@ -76,7 +74,7 @@ def map_carts(
                         source_ref=line_source_ref,
                         raw_payload=raw_line,
                         reason_code="invalid_quantity",
-                        reason_detail=f"cart line {line_id} has non-positive quantity={item.quantity}",
+                        reason_detail=f"cart line {line_id} has non-pos qty={item.quantity}",
                     )
                 )
                 continue
@@ -89,20 +87,21 @@ def map_carts(
                         source_ref=line_source_ref,
                         raw_payload=raw_line,
                         reason_code="unknown_product",
-                        reason_detail=f"product_id {item.id} was referenced by cart {cart.id} but not found in the product lookup",
+                        reason_detail=f"product_id {item.id} was referenced by cart {cart.id} "
+                        "but not found in the product lookup",
                     )
                 )
                 continue
 
             discount_pct = derive_line_discount_pct(
                 line_total=item.total,
-                discounted_line_total=item.discountedPrice,
+                discounted_line_total=item.discountedTotal,
             )
             gross_usd = derive_gross_usd(quantity=item.quantity, unit_price_usd=item.price)
             net_usd = derive_net_usd(
                 gross_usd=gross_usd,
                 discount_pct=discount_pct,
-                discounted_line_total=item.discountedPrice,
+                discounted_line_total=item.discountedTotal,
             )
 
             order_item_rows.append(
@@ -124,11 +123,8 @@ def map_carts(
                 )
             )
 
-
     return MappedCarts(
         order_rows=order_rows,
         order_item_rows=order_item_rows,
         rejects=rejects,
-    )       
-
-
+    )

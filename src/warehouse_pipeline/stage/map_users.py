@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from warehouse_pipeline.extract.models import DummyUser
 from warehouse_pipeline.stage import MappedUsers, StageReject, StageRow, UserLookupItem
@@ -27,11 +27,10 @@ def map_users(users: Iterable[DummyUser]) -> MappedUsers:
                     source_ref=source_ref,
                     raw_payload=raw_payload,
                     reason_code="missing_name",
-                    reason_detail="user could not be mapped because both first_name and last_name are blank",
+                    reason_detail="user could not be mapped, first_name and last_name are blank",
                 )
             )
             continue
-
 
         email = normalize_email(user.email)
         city = normalize_text(user.address.city) if user.address else None
@@ -55,7 +54,7 @@ def map_users(users: Iterable[DummyUser]) -> MappedUsers:
                     "company": company,
                 },
             )
-        )            
+        )
 
         # Keep the first-seen lookup value.
         # (lowest `source_ref` wins).

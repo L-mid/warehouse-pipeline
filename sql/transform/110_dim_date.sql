@@ -30,6 +30,4 @@ SELECT
   EXTRACT(quarter FROM d)::int AS quarter,
   DATE_TRUNC('week', d)::date AS week_start,
   DATE_TRUNC('month', d)::date AS month_start
-FROM days; 
-
-
+FROM days;

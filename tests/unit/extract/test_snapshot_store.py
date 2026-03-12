@@ -7,7 +7,7 @@ from warehouse_pipeline.extract.snapshot_store import SnapshotStore
 
 def test_snapshot_store_roundtrip(tmp_path: Path) -> None:
     """
-    `SnapshotsStore`'s read and writes can write a provided `name` and `payload` 
+    `SnapshotsStore`'s read and writes can write a provided `name` and `payload`
     into a valid snapshot, and then read them back properly.
     """
     store = SnapshotStore(tmp_path)
@@ -25,7 +25,6 @@ def test_snapshot_store_roundtrip(tmp_path: Path) -> None:
 
     loaded = store.read_json("users")
 
-
-    assert path.name == "users.json"    # saved where expected.
+    assert path.name == "users.json"  # saved where expected.
     assert loaded["total"] == 1
     assert loaded["users"][0]["id"] == 1

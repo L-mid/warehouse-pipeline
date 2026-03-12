@@ -1,25 +1,27 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import cast
 from uuid import uuid4
+
+import psycopg
 
 from tests.unit.db.mocks import FakeConnection
 from warehouse_pipeline.db.dq_results import DQMetricRow, upsert_dq_results
 
 
-
 def test_dq_results_happy_path() -> None:
     """
-    Data quailty results writes a row. 
+    Data quailty results writes a row.
     And upsert only updates one row, not all rows over again.
     """
 
-    conn = FakeConnection()
+    fake_conn = FakeConnection()
+    conn = cast(psycopg.Connection[tuple], fake_conn)
     run_id = uuid4()
 
     n = upsert_dq_results(
         conn,
-
         rows=[
             # add one row to insert.
             DQMetricRow(
@@ -34,10 +36,11 @@ def test_dq_results_happy_path() -> None:
         ],
     )
 
-    assert n == 1   # one row was inserted
+    assert n == 1  # one row was inserted
 
-
-    calls = [call for call in conn.calls if call[0] == "cursor.executemany"]    # called correctly
+    calls = [
+        call for call in fake_conn.calls if call[0] == "cursor.executemany"
+    ]  # called correctly
     # one call on the connection only
     assert len(calls) == 1
     assert len(calls[0][2]) == 1

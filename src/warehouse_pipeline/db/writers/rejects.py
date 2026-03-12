@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any
 from uuid import UUID
 
 from psycopg import Connection, sql
@@ -11,19 +12,19 @@ from psycopg.types.json import Jsonb
 @dataclass(frozen=True)
 class RejectInsert:
     """`reject_rows` table's expected data schema for inserting rejected rows."""
-    table_name: str             
+
+    table_name: str
     source_ref: int
     raw_payload: Mapping[str, Any]
     reason_code: str
     reason_detail: str
 
 
-
-def insert_reject_rows(conn: Connection, *, run_id: UUID, rejects: Sequence[RejectInsert]) -> None:
+def insert_reject_rows(conn: Connection, *, run_id: UUID, rejects: Sequence[RejectInsert]) -> int:
     """
     Insert `rejects` into the DB's `reject_rows`.
-    
-    Table and column identifiers are fixed derived constants. 
+
+    Table and column identifiers are fixed derived constants.
     Values are parameterized directly.
     """
     if not rejects:
@@ -36,7 +37,9 @@ def insert_reject_rows(conn: Connection, *, run_id: UUID, rejects: Sequence[Reje
     query = sql.SQL("INSERT INTO {tbl} ({cols}) VALUES ({vals})").format(
         tbl=sql.Identifier("reject_rows"),
         cols=sql.SQL(", ").join(sql.Identifier(c) for c in cols),
-        vals=sql.SQL(", ").join(sql.Placeholder() for _ in cols),   # does not include user-provided fields, safe to inject
+        vals=sql.SQL(", ").join(
+            sql.Placeholder() for _ in cols
+        ),  # does not include user-provided fields, safe to inject
     )
 
     # params:
@@ -52,10 +55,9 @@ def insert_reject_rows(conn: Connection, *, run_id: UUID, rejects: Sequence[Reje
                 r.reason_detail,
             )
         )
-  
+
     if params:
         with conn.cursor() as cur:
             cur.executemany(query, params)  # sequential batch processing
-
 
     return len(params)

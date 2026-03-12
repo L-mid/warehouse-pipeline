@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import cast
 from uuid import uuid4
 
-from tests.unit.db.mocks import FakeConnection
-from warehouse_pipeline.db.dq_results import DQMetricRow
+import psycopg
 
 import warehouse_pipeline.dq.runner as runner
-
+from tests.unit.db.mocks import FakeConnection
+from warehouse_pipeline.db.dq_results import DQMetricRow
 
 
 def test_dq_runner_happy_path(monkeypatch) -> None:
     """Tests data quality runner rows run sucessfully."""
     conn = FakeConnection()
+    conn = cast(psycopg.Connection[tuple], conn)
     run_id = uuid4()
-
 
     metric_rows = [
         # three rows.
@@ -50,14 +51,13 @@ def test_dq_runner_happy_path(monkeypatch) -> None:
     deleted: list[tuple[object, str]] = []
     upserted: list[DQMetricRow] = []
 
-
     def fake_ensure_run_exists(conn, *, run_id) -> None:
         """Takes params and returns `None`."""
         return None
 
     def fake_build_metrics_for_table(conn, *, table_name: str, run_id):
         """
-        Takes `table_name`, ensures it's for stg_orders, 
+        Takes `table_name`, ensures it's for stg_orders,
         returns the pre-defined metric rows.
         """
         assert table_name == "stg_orders"
@@ -72,7 +72,7 @@ def test_dq_runner_happy_path(monkeypatch) -> None:
         materialized = list(rows)
         upserted.extend(materialized)
         return len(materialized)
-    
+
     #
     monkeypatch.setattr(runner, "_ensure_run_exists", fake_ensure_run_exists)
     monkeypatch.setattr(runner, "_build_metrics_for_table", fake_build_metrics_for_table)
@@ -83,10 +83,10 @@ def test_dq_runner_happy_path(monkeypatch) -> None:
     summary = runner.run_table_dq(conn, run_id=run_id, table_name="stg_orders")
 
     assert deleted == [(run_id, "stg_orders")]  # make sure they were deleted
-    assert len(upserted) == 3   # only the three rows provided got inserted
+    assert len(upserted) == 3  # only the three rows provided got inserted
 
     assert summary.run_id == run_id
     assert summary.table_name == "stg_orders"
-    assert summary.metrics_written == 3 
+    assert summary.metrics_written == 3
     assert summary.failed_metrics == 0
     assert summary.passed is True

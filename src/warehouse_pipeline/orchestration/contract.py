@@ -9,7 +9,6 @@ from uuid import UUID
 from warehouse_pipeline.extract.bundles import snapshot_root_for_key
 from warehouse_pipeline.transform.sql_plan import TransformStep
 
-
 RunStatus = Literal["succeeded", "failed"]
 
 
@@ -18,14 +17,17 @@ class RunSpec:
     """
     The inputs that define one fully end-to-end pipeline execution.
     """
-    mode: Literal["snapshot", "live"]   # `snapshot` is a perisisted write of the API. `live` extracts live.
+
+    mode: Literal[
+        "snapshot", "live"
+    ]  # `snapshot` is a perisisted write of the API. `live` extracts live.
     source_system: str = "dummyjson"
-    snapshot_key: str | None = "v1"     # `v1` | `smoke`
-    snapshot_root: Path | None = None   # where snapshot
-    runs_root: Path = Path("runs")      # where runs
+    snapshot_key: str | None = "v1"  # `v1` | `smoke`
+    snapshot_root: Path | None = None  # where snapshot
+    runs_root: Path = Path("runs")  # where runs
     page_size: int = 100
     git_sha: str | None = None
-    transform_step: TransformStep = "build_all"     # `build_all` | 
+    transform_step: TransformStep = "build_all"  # `build_all` |
     publish_views: bool = True
     args_json: dict[str, Any] = field(default_factory=dict)
 
@@ -45,6 +47,7 @@ class RunManifest:
     """
     The final persisted results summary for one pipeline run.
     """
+
     run_id: UUID
     mode: str
     status: RunStatus
@@ -52,7 +55,7 @@ class RunManifest:
     snapshot_key: str | None
     started_at: datetime
     finished_at: datetime
-    
+
     # the pipeline's stages results
     extract: dict[str, Any]
     stage: dict[str, Any]
@@ -64,7 +67,3 @@ class RunManifest:
     timings_s: dict[str, float]
     artifacts: dict[str, str]
     error_message: str | None = None
-
-
-
-

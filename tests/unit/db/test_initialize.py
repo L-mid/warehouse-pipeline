@@ -15,9 +15,8 @@ def test_initialize_happy_path(tmp_path: Path, monkeypatch) -> None:
     (schema_dir / "000_extensions.sql").write_text("SELECT 1;", encoding="utf-8")
     (schema_dir / "010_tables.sql").write_text("SELECT 2;", encoding="utf-8")
 
-
     conn = FakeConnection()
-    seen: list[Path] = []  
+    seen: list[Path] = []
 
     def fake_connect(database_url=None):
         """Take real `database_url` and return mock connection `conn`."""
@@ -26,8 +25,7 @@ def test_initialize_happy_path(tmp_path: Path, monkeypatch) -> None:
     def fake_run_sql_dir(got_conn, directory, glob="*.sql"):
         """Make sure it got the right mock connection, and append any directories seen."""
         assert got_conn is conn
-        seen.append(directory)    
-
+        seen.append(directory)
 
     monkeypatch.setattr(initialize_mod, "connect", fake_connect)
     # appends all seen
@@ -35,7 +33,6 @@ def test_initialize_happy_path(tmp_path: Path, monkeypatch) -> None:
 
     initialize_mod.initialize_database(sql_path=schema_dir)
 
-
-    assert seen == [schema_dir]         # must return the same directory path.
-    assert conn.commit_calls == 1       # it commited only once when done.
-    assert conn.rollback_calls == 0     # did not error  
+    assert seen == [schema_dir]  # must return the same directory path.
+    assert conn.commit_calls == 1  # it commited only once when done.
+    assert conn.rollback_calls == 0  # did not error

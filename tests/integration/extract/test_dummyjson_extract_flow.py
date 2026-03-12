@@ -12,8 +12,6 @@ import pytest
 from warehouse_pipeline.extract import extract_dummyjson_snapshots
 from warehouse_pipeline.extract.dummyjson_client import DummyJsonClient
 
-
-
 USERS = [
     {
         "id": 1,
@@ -60,7 +58,7 @@ CARTS = [
                 "quantity": 2,
                 "price": 4.99,
                 "total": 9.98,
-                "discountedPrice": 4.99,
+                "discountedTotal": 4.99,
             }
         ],
     }
@@ -94,7 +92,7 @@ class _DummyJsonHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/carts":
             body = _slice_page(CARTS, key="carts", skip=skip, limit=limit)
         else:
-            self.send_response(404) 
+            self.send_response(404)
             self.end_headers()
             return
 
@@ -108,11 +106,9 @@ class _DummyJsonHandler(BaseHTTPRequestHandler):
         # write to it
         self.wfile.write(raw)
 
-
     def log_message(self, format: str, *args) -> None:
         # silences potential test server noise
         return
-    
 
 
 @pytest.fixture()
@@ -122,7 +118,10 @@ def dummyjson_server() -> Iterator[str]:
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
-    host, port = server.server_address
+    addr = server.server_address
+    host = addr[0]
+    port = addr[1]
+
     try:
         yield f"http://{host}:{port}"
     finally:
@@ -131,7 +130,7 @@ def dummyjson_server() -> Iterator[str]:
         thread.join()
 
 
-
+@pytest.mark.docker_required
 def test_extract_happy_path(
     tmp_path: Path,
     dummyjson_server: str,
@@ -140,8 +139,8 @@ def test_extract_happy_path(
 
     with DummyJsonClient(base_url=dummyjson_server, min_interval_s=0.0) as client:
         out = extract_dummyjson_snapshots(
-            snapshot_root=tmp_path / "dummyjson",   # tmp root
-            page_size=1,    # force pagination
+            snapshot_root=tmp_path / "dummyjson",  # tmp root
+            page_size=1,  # force pagination
             client=client,
         )
 
@@ -151,7 +150,6 @@ def test_extract_happy_path(
     users = json.loads((tmp_path / "dummyjson" / "users.json").read_text(encoding="utf-8"))
     products = json.loads((tmp_path / "dummyjson" / "products.json").read_text(encoding="utf-8"))
     carts = json.loads((tmp_path / "dummyjson" / "carts.json").read_text(encoding="utf-8"))
-
 
     assert users["total"] == 2
     assert len(users["users"]) == 2
@@ -163,19 +161,17 @@ def test_extract_happy_path(
     assert len(carts["carts"]) == 1
 
 
-
+@pytest.mark.docker_required
 # some extra smoke assertions (unrelated to this exact extract for now)
 def test_smoke_snapshot_shapes(dummyjson_snapshots_dir) -> None:
     """Smoke snapshots in the real dir must contain correctly named json top level."""
 
     SMOKE_DIR = dummyjson_snapshots_dir / "smoke"
 
-    users = json.loads((SMOKE_DIR  / "users.json").read_text())
+    users = json.loads((SMOKE_DIR / "users.json").read_text())
     products = json.loads((SMOKE_DIR / "products.json").read_text())
     carts = json.loads((SMOKE_DIR / "carts.json").read_text())
 
     assert "users" in users
     assert "products" in products
     assert "carts" in carts
-
-

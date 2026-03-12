@@ -48,7 +48,7 @@ CREATE INDEX IF NOT EXISTS stg_order_items_sku_idx
     ON stg_order_items (sku);
 
 
- 
+
 
 -- reject_rows
 CREATE INDEX IF NOT EXISTS reject_rows_run_table_idx

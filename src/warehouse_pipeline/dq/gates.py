@@ -9,9 +9,7 @@ from psycopg import Connection
 
 from warehouse_pipeline.db.run_ledger import RunMode
 
-
 GateSeverity = Literal["hard", "soft"]
-
 
 
 @dataclass(frozen=True)
@@ -19,6 +17,7 @@ class GateFailure:
     """
     One failed or warning gate evaluation.
     """
+
     table_name: str
     metric_name: str
     actual: Decimal
@@ -31,12 +30,12 @@ class GateDecision:
     """
     Stores final pass or fail decision for a pipeline run.
     """
+
     run_id: UUID
     mode: RunMode
     passed: bool
     failures: tuple[GateFailure, ...]
     warnings: tuple[GateFailure, ...]
-
 
 
 def _get_run_mode(conn: Connection, *, run_id: UUID) -> RunMode:
@@ -58,7 +57,6 @@ def _get_run_mode(conn: Connection, *, run_id: UUID) -> RunMode:
     return mode
 
 
-
 def _fetch_metric(conn: Connection, *, run_id: UUID, table_name: str, metric_name: str) -> Decimal:
     """
     Fetches one metric value from `dq_results`.
@@ -76,7 +74,6 @@ def _fetch_metric(conn: Connection, *, run_id: UUID, table_name: str, metric_nam
         (run_id, table_name, metric_name),
     ).fetchone()
 
-
     # Missing metric rows as this stage error.
     if row is None:
         raise ValueError(
@@ -88,6 +85,7 @@ def _fetch_metric(conn: Connection, *, run_id: UUID, table_name: str, metric_nam
 
 
 # failure types
+
 
 def _hard_failure(
     *,
@@ -123,7 +121,6 @@ def _soft_warning(
     )
 
 
-
 def evaluate_stage_gates(conn: Connection, *, run_id: UUID) -> GateDecision:
     """
     Evaluate the overall pass or fail gates from DQ metrics.
@@ -145,10 +142,11 @@ def evaluate_stage_gates(conn: Connection, *, run_id: UUID) -> GateDecision:
         "stg_order_items",
     )
 
-
     # Basic table health
     for table_name in stage_tables:
-        row_count = _fetch_metric(conn, run_id=run_id, table_name=table_name, metric_name="row_count")
+        row_count = _fetch_metric(
+            conn, run_id=run_id, table_name=table_name, metric_name="row_count"
+        )
         duplicate_keys = _fetch_metric(
             conn,
             run_id=run_id,
@@ -160,7 +158,7 @@ def evaluate_stage_gates(conn: Connection, *, run_id: UUID) -> GateDecision:
             run_id=run_id,
             table_name=table_name,
             metric_name="reject_rows.reject_rate",
-        )    
+        )
 
         if row_count == 0:
             warnings.append(
@@ -192,7 +190,7 @@ def evaluate_stage_gates(conn: Connection, *, run_id: UUID) -> GateDecision:
                         actual=reject_rate,
                         rule="snapshot runs require reject_rows.reject_rate == 0",
                     )
-                )        
+                )
 
         # in live mode rejection is tolerated within tolerance
         else:
@@ -252,7 +250,7 @@ def evaluate_stage_gates(conn: Connection, *, run_id: UUID) -> GateDecision:
                 actual=missing_products,
                 rule="must equal 0",
             )
-        )    
+        )
 
     orphan_orders = _fetch_metric(
         conn,
@@ -278,6 +276,3 @@ def evaluate_stage_gates(conn: Connection, *, run_id: UUID) -> GateDecision:
         failures=tuple(failures),
         warnings=tuple(warnings),
     )
-
-
-

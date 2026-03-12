@@ -29,7 +29,7 @@ def test_stage_init_happy_path() -> None:
         raw_payload={"id": 100},
         reason_code="bad_row",
         reason_detail="example",
-    ) 
+    )
 
     product = ProductLookupItem(
         product_id=10,
@@ -55,8 +55,7 @@ def test_stage_init_happy_path() -> None:
 
     mapped_users = MappedUsers(user_lookup={1: user})
     mapped_products = MappedProducts(product_lookup={10: product})
-    mapped_carts = MappedCarts()          
-
+    mapped_carts = MappedCarts()
 
     assert row.table_name == "stg_products"
     assert reject.reason_code == "bad_row"
@@ -66,8 +65,4 @@ def test_stage_init_happy_path() -> None:
 
     assert mapped_users.rows == []
     assert mapped_products.rows == []
-    assert mapped_carts.order_rows == []   
-
-
-
-
+    assert mapped_carts.order_rows == []

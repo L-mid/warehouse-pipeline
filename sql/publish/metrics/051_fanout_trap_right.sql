@@ -5,21 +5,18 @@
 
 
 WITH items_by_order AS (
-  SELECT 
-    order_id, 
+  SELECT
+    order_id,
     SUM(net_usd) AS net_usd
   FROM v_fact_order_items_latest
   GROUP BY 1
 )
-SELECT 
-  fo.date AS day, 
+SELECT
+  fo.date AS day,
   SUM(ibo.net_usd) AS paid_revenue_usd_right
 FROM v_fact_orders_latest fo
-JOIN items_by_order ibo 
+JOIN items_by_order ibo
   ON ibo.order_id = fo.order_id
 WHERE fo.status = 'paid'
 GROUP BY 1
 ORDER BY 1;
-
-
-

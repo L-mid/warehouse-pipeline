@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from typing import cast
 from uuid import uuid4
+
+import psycopg
 
 import warehouse_pipeline.stage.load as load_mod
 from warehouse_pipeline.stage import StageReject, StageRow
@@ -28,13 +31,12 @@ def test_load_happy_path(monkeypatch) -> None:
         """Append inserted rows."""
         calls.append(("rejects", "reject_rows", len(rejects)))
         return len(rejects)
-    
+
     # re
     monkeypatch.setattr(load_mod, "prepare_work_table", fake_prepare_work_table)
     monkeypatch.setattr(load_mod, "insert_work_rows", fake_insert_work_rows)
     monkeypatch.setattr(load_mod, "flush_work_table", fake_flush_work_table)
     monkeypatch.setattr(load_mod, "insert_reject_rows", fake_insert_reject_rows)
-
 
     rows = [
         # two good rows
@@ -62,15 +64,19 @@ def test_load_happy_path(monkeypatch) -> None:
         )
     ]
 
+    # fake connection
+    conn = object()
+    conn = cast(psycopg.Connection[tuple], conn)
+
     results = load_mod.load_stage_rows(
-        conn=object(),
+        conn=conn,
         run_id=uuid4(),
         rows=rows,
         rejects=rejects,
     )
 
     assert ("rejects", "reject_rows", 1) in calls
-    assert ("prepare", "stg_customers", 0) in calls 
+    assert ("prepare", "stg_customers", 0) in calls
     assert ("prepare", "stg_orders", 0) in calls
 
     assert results["stg_customers"].inserted_count == 1

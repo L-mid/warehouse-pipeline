@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
-from uuid import UUID
+from typing import Any
 
-from psycopg import Connection, sql
 from psycopg.types.json import Jsonb
-
 
 
 @dataclass(frozen=True)
@@ -14,10 +11,12 @@ class StagingTableSpec:
     """
     Whitelisted staging table SQL values.
 
-    - `columns` excludes `run_id` and `created_at` (`run_id` is injected, `created_at` has a DB default).
-    - `key_cols` are the per-run key columns (excluding `run_id`). They match this staging PK shape:
+    - `columns` excludes `run_id` and `created_at`.
+    - `key_cols` are the per-run key columns (excluding `run_id`).
+    They match this staging PK shape:
     `PRIMARY KEY (run_id, *key_cols)`.
     """
+
     table_name: str
     columns: tuple[str, ...]
     key_cols: tuple[str, ...]
@@ -25,9 +24,8 @@ class StagingTableSpec:
 
     @property
     def work_table_name(self) -> str:
-        # here, temp/work table name is derived from the whitelisted staging `table_name` only. 
+        # here, temp/work table name is derived from the whitelisted staging `table_name` only.
         return f"_work_{self.table_name}"
-
 
 
 # wrap all staging specs for data together.
@@ -103,10 +101,8 @@ def get_staging_spec(table_name: str) -> StagingTableSpec:
         raise KeyError(f"Unknown staging table {table_name!r}. Allowed: {allowed}") from exc
 
 
-def adapt_staging_value(spec: StagingTableSpec, col: str, value: Any) -> Any:   # any value in or out
+def adapt_staging_value(spec: StagingTableSpec, col: str, value: Any) -> Any:  # any value in or out
     """Adapt python values to DB types (e.g., `jsonb`)."""
     if col in spec.json_cols and value is not None:
         return Jsonb(value)
     return value
-
-

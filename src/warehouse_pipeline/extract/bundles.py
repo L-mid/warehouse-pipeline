@@ -16,11 +16,7 @@ from warehouse_pipeline.extract.models import (
 from warehouse_pipeline.extract.paginator import PaginationResult, fetch_all_pages
 from warehouse_pipeline.extract.snapshot_store import SnapshotStore
 
- 
-DEFAULT_SNAPSHOT_BASE_DIR = (
-    Path(__file__).resolve().parents[3] / "data" / "snapshots" / "dummyjson"
-)
-
+DEFAULT_SNAPSHOT_BASE_DIR = Path(__file__).resolve().parents[3] / "data" / "snapshots" / "dummyjson"
 
 
 @dataclass(frozen=True)
@@ -28,8 +24,9 @@ class ExtractBundle:
     """
     Fully validated source bundle for one pipeline run.
 
-    Gives staging something to stage. 
+    Gives staging something to stage.
     """
+
     mode: Literal["snapshot", "live"]
     users: tuple[DummyUser, ...]
     products: tuple[DummyProduct, ...]
@@ -41,14 +38,14 @@ class ExtractBundle:
     page_size: int | None = None
 
 
-
 def snapshot_root_for_key(snapshot_key: str, *, base_dir: Path | None = None) -> Path:
     """Resolves the pinned snapshot directory for a snapshot key such as `v1` or `smoke`."""
-    root = (base_dir or DEFAULT_SNAPSHOT_BASE_DIR).resolve()    # fallback to `data/snapshots/dummyjson`.
+    root = (
+        base_dir or DEFAULT_SNAPSHOT_BASE_DIR
+    ).resolve()  # fallback to `data/snapshots/dummyjson`.
     return root / snapshot_key  # give a key
 
 
- 
 def read_snapshot_bundle(
     *,
     snapshot_root: Path,
@@ -91,7 +88,6 @@ def read_snapshot_bundle(
         },
         page_size=None,
     )
-      
 
 
 def fetch_live_bundle(
@@ -104,7 +100,6 @@ def fetch_live_bundle(
     """
     owns_client = client is None
     live_client = client or DummyJsonClient()
-
 
     try:
         users: PaginationResult[DummyUser] = fetch_all_pages(
@@ -152,8 +147,7 @@ def fetch_live_bundle(
     finally:
         if owns_client:
             # make sure close connect to live
-            live_client.close()              
-
+            live_client.close()
 
 
 # idea for a `scripts/fetch_dummyjson_snapshot.py` later.
@@ -192,7 +186,3 @@ def write_snapshot_bundle(bundle: ExtractBundle, *, snapshot_root: Path) -> dict
         },
     )
     return out
-
-
-
-

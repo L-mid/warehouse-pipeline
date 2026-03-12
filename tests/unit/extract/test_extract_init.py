@@ -10,7 +10,7 @@ from warehouse_pipeline.extract.dummyjson_client import DummyJsonClient
 
 def test_extract_dummyjson_snapshots_happy_path(tmp_path: Path) -> None:
     """Test extraction functions from init."""
-    
+
     def handler(request: httpx.Request) -> httpx.Response:
         """Returns a useable `httpx.Response` to actually injest from."""
         if request.url.path == "/users":
@@ -70,7 +70,7 @@ def test_extract_dummyjson_snapshots_happy_path(tmp_path: Path) -> None:
                                     "quantity": 2,
                                     "price": 4.99,
                                     "total": 9.98,
-                                    "discountedPrice": 4.99,
+                                    "discountedTotal": 4.99,
                                 }
                             ],
                         }
@@ -94,7 +94,6 @@ def test_extract_dummyjson_snapshots_happy_path(tmp_path: Path) -> None:
         min_interval_s=0.0,
     )
 
-
     # extraction test
     out = extract_dummyjson_snapshots(
         snapshot_root=tmp_path / "dummyjson",
@@ -102,7 +101,7 @@ def test_extract_dummyjson_snapshots_happy_path(tmp_path: Path) -> None:
         client=client,
     )
 
-    assert set(out.keys()) == {"users", "products", "carts"}    # got em all
+    assert set(out.keys()) == {"users", "products", "carts"}  # got em all
     assert (tmp_path / "dummyjson" / "users.json").exists()
     assert (tmp_path / "dummyjson" / "products.json").exists()
     assert (tmp_path / "dummyjson" / "carts.json").exists()

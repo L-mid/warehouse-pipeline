@@ -7,10 +7,13 @@ from time import perf_counter
 from typing import Any
 from uuid import UUID
 
-
-
 from warehouse_pipeline.db.connect import connect
-from warehouse_pipeline.db.run_ledger import RunStart, create_run, mark_run_failed, mark_run_succeeded
+from warehouse_pipeline.db.run_ledger import (
+    RunStart,
+    create_run,
+    mark_run_failed,
+    mark_run_succeeded,
+)
 from warehouse_pipeline.dq.gates import GateDecision, evaluate_stage_gates
 from warehouse_pipeline.dq.runner import DQRunSummary, run_stage_dq
 from warehouse_pipeline.extract import fetch_live_bundle, read_snapshot_bundle
@@ -24,7 +27,6 @@ from warehouse_pipeline.stage.map_carts import map_carts
 from warehouse_pipeline.stage.map_products import map_products
 from warehouse_pipeline.stage.map_users import map_users
 from warehouse_pipeline.transform.warehouse_build import WarehouseBuildResult, build_warehouse
-
 
 
 class PipelineGateFailed(RuntimeError):
@@ -43,10 +45,12 @@ class PipelineGateFailed(RuntimeError):
 def _utcnow() -> datetime:
     """Coerces to UTC datetime."""
     return datetime.now(UTC)
-    
+
+
 def _run_artifacts_dir(spec: RunSpec, run_id: UUID) -> Path:
     """Creates and resolve then return the artifacts directory using the provided `run_id`."""
-    return spec.runs_root.resolve() / str(run_id)   
+    return spec.runs_root.resolve() / str(run_id)
+
 
 def _extract_bundle(spec: RunSpec) -> ExtractBundle:
     """Extractions of either the `snapshot` mode OR the `live` mode expectaions."""
@@ -91,6 +95,7 @@ def _summarize_dq(summaries: tuple[DQRunSummary, ...]) -> dict[str, Any]:
         for summary in summaries
     }
 
+
 def _summarize_gate(decision: GateDecision | None) -> dict[str, Any]:
     """Summarizes the DQ gate's verdict."""
     if decision is None:
@@ -103,6 +108,7 @@ def _summarize_gate(decision: GateDecision | None) -> dict[str, Any]:
         "warnings": [asdict(x) for x in decision.warnings],
     }
 
+
 def _summarize_transform(result: WarehouseBuildResult | None) -> dict[str, Any]:
     """Summarizes the transformations building step."""
     if result is None:
@@ -112,6 +118,7 @@ def _summarize_transform(result: WarehouseBuildResult | None) -> dict[str, Any]:
         "files_ran": list(result.files_ran),
         "run_id": str(result.run_id),
     }
+
 
 def _summarize_publish(result: PublishResult | None) -> dict[str, Any]:
     """Summarizes the publishing step for views."""
@@ -148,7 +155,6 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
     error_message: str | None = None
     status = "failed"
 
-
     with connect(database_url) as conn:
         # Connect to initalize the run ledger before anything else
         # keeps it commited even after rollback if error
@@ -168,27 +174,26 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
                 },
             ),
         )
-        conn.commit()   # commited.
-
+        conn.commit()  # commited.
 
         ## -- inits.
         run_dir = _run_artifacts_dir(spec, run_id)
         logger = RunLogger(run_id=run_id, log_path=run_dir / "logs.jsonl")
-    
+
         logger.event("run_started", mode=spec.mode, source_system=spec.source_system)
 
         try:
-            
             ## -- extraction
             t0 = perf_counter()
             logger.phase_started("extract")
             bundle = _extract_bundle(spec)
             extract_summary = _summarize_extract(bundle)
             timings_s["extract"] = perf_counter() - t0
-            logger.phase_finished("extract", duration_s=timings_s["extract"], counts=extract_summary["counts"])
+            logger.phase_finished(
+                "extract", duration_s=timings_s["extract"], counts=extract_summary["counts"]
+            )
 
-
-            ## -- map obtained to staging 
+            ## -- map obtained to staging
             t0 = perf_counter()
             logger.phase_started("stage_map")
             mapped_users = map_users(bundle.users)
@@ -197,7 +202,7 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
                 bundle.carts,
                 product_lookup=mapped_products.product_lookup,
                 user_lookup=mapped_users.user_lookup,
-            )            
+            )
             timings_s["stage_map"] = perf_counter() - t0
             logger.phase_finished(
                 "stage_map",
@@ -206,7 +211,7 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
                 product_rows=len(mapped_products.rows),
                 order_rows=len(mapped_carts.order_rows),
                 order_item_rows=len(mapped_carts.order_item_rows),
-            )           
+            )
 
             ## -- staging
             t0 = perf_counter()
@@ -218,16 +223,18 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
                 products=mapped_products,
                 carts=mapped_carts,
             )
-            conn.commit()       # commit staged tables.
+            conn.commit()  # commit staged tables.
             stage_summary = _summarize_stage(stage_results)
             timings_s["stage_load"] = perf_counter() - t0
-            logger.phase_finished("stage_load", duration_s=timings_s["stage_load"], tables=list(stage_summary))
+            logger.phase_finished(
+                "stage_load", duration_s=timings_s["stage_load"], tables=list(stage_summary)
+            )
 
             ## -- dq
             t0 = perf_counter()
             logger.phase_started("dq")
             dq_results = run_stage_dq(conn, run_id=run_id)
-            conn.commit()       # commit dq table checks in 
+            conn.commit()  # commit dq table checks in
             dq_summary = _summarize_dq(dq_results)
             timings_s["dq"] = perf_counter() - t0
             logger.phase_finished(
@@ -250,9 +257,8 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
                 warnings=len(gate_decision.warnings),
             )
             if not gate_decision.passed:
-                raise PipelineGateFailed(gate_decision)     # will error if metrics not within tol
+                raise PipelineGateFailed(gate_decision)  # will error if metrics not within tol
             # no commit
-
 
             ## -- transform, publish results.
             t0 = perf_counter()
@@ -261,9 +267,9 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
                 conn,
                 run_id=run_id,
                 step_name=spec.transform_step,
-            )    
+            )
             publish_result = apply_views(conn) if spec.publish_views else None
-            conn.commit()   # commit transforms and anything published together
+            conn.commit()  # commit transforms and anything published together
             transform_summary = _summarize_transform(transform_result)
             publish_summary = _summarize_publish(publish_result)
             timings_s["transform_publish"] = perf_counter() - t0
@@ -277,14 +283,13 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
             ## -- succeed the run.
 
             mark_run_succeeded(conn, run_id=run_id)
-            conn.commit()   # commit that we suceeded and are done
-            
+            conn.commit()  # commit that we suceeded and are done
+
             # status updated here too and timer stopped, for manifest
             status = "succeeded"
             finished_at = _utcnow()
 
             logger.event("run_succeeded")
-
 
         except Exception as exc:
             conn.rollback()
@@ -293,19 +298,18 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
             logger.error("pipeline", error_message=error_message)
 
             mark_run_failed(conn, run_id=run_id, error_message=error_message)
-            conn.commit()   # commit in the legder that the run failed.
+            conn.commit()  # commit in the legder that the run failed.
 
             # for manifest
             status = "failed"
-            logger.event("run_failed")   
-
+            logger.event("run_failed")
 
         manifest = RunManifest(
             run_id=run_id,
             mode=spec.mode,
             status=status,
             source_system=spec.source_system,
-            snapshot_key=spec.snapshot_key if spec.mode == "snapshot" else None,    # default snapshot
+            snapshot_key=spec.snapshot_key if spec.mode == "snapshot" else None,  # default snapshot
             started_at=started_at,
             finished_at=finished_at,
             extract=extract_summary,
@@ -323,13 +327,6 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
             error_message=error_message,
         )
         write_manifest(run_dir=run_dir, manifest=manifest)
-        
+
         # return itself as a summary too. good for tests
-        return manifest                 
-
-
-
-
-
-
-
+        return manifest

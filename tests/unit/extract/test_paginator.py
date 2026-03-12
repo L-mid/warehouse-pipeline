@@ -8,9 +8,8 @@ def test_fetch_all_pages_happy_path() -> None:
     """"""
     # `UsersPage` as example to fetch pages from
     pages = {
-
-        # parse locally, avoid dependency on `parse_users_page` from `models.py` 
-        # and make two 'pages'.  
+        # parse locally, avoid dependency on `parse_users_page` from `models.py`
+        # and make two 'pages'.
         0: UsersPage.model_validate(
             {
                 "users": [
@@ -43,12 +42,10 @@ def test_fetch_all_pages_happy_path() -> None:
         ),
     }
 
-
     def fetch_page(limit: int, skip: int) -> UsersPage:
         """Fetch page, only one at once."""
         assert limit == 1
         return pages[skip]
-
 
     # page fetching logic
     result = fetch_all_pages(
@@ -64,6 +61,3 @@ def test_fetch_all_pages_happy_path() -> None:
     assert result.total == 2
     assert result.pages_fetched == 2
     assert [user.id for user in result.items] == [1, 2]
-
-
-    

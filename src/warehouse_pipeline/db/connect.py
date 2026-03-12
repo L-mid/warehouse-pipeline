@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import psycopg
 from psycopg import Connection
 
 # for runtime/cli
 DEFAULT_DSN = "postgresql://postgres:postgres@localhost:5433/warehouse"
-
 
 
 def get_database_url() -> str:
@@ -19,10 +17,9 @@ def get_database_url() -> str:
     or by setting `WAREHOUSE_DSN` in their own test environment.
     """
     return os.getenv("WAREHOUSE_DSN", DEFAULT_DSN)
- 
 
 
-def connect(database_url: Optional[str] = None, *, autocommit: bool = False) -> Connection:
+def connect(database_url: str | None = None, *, autocommit: bool = False) -> Connection:
     """
     Open and return a psycopg connection.
 
@@ -31,5 +28,3 @@ def connect(database_url: Optional[str] = None, *, autocommit: bool = False) -> 
     """
     url = database_url or get_database_url()
     return psycopg.connect(url, autocommit=autocommit)
-
-

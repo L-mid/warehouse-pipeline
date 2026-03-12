@@ -9,4 +9,3 @@ def test_table_specs_key_cols_are_tuples():
         assert isinstance(spec.key_cols, tuple), (name, spec.key_cols)
         assert all(isinstance(c, str) for c in spec.key_cols)
         assert len(spec.key_cols) >= 1
-

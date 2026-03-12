@@ -6,7 +6,6 @@ from warehouse_pipeline.extract.models import DummyProduct
 from warehouse_pipeline.stage.map_products import map_products
 
 
-
 def test_map_products_happy_path() -> None:
     """Products maps into `stg_products` rows and a product lookup."""
     products = [
@@ -16,6 +15,9 @@ def test_map_products_happy_path() -> None:
             category="groceries",
             price=4.99,
             stock=12,
+            brand="Tea Co",
+            discountedTotal=12.5,
+            rating=4.7,
         )
     ]
 
@@ -32,7 +34,11 @@ def test_map_products_happy_path() -> None:
     assert row.values["product_id"] == 10
     assert row.values["sku"] == "SKU-groceries-tea-10"
     assert row.values["price_usd"] == Decimal("4.99")
+    assert row.values["brand"] == "Tea Co"
+    assert row.values["discount_pct"] == Decimal("0.1250")
+    assert row.values["rating"] == Decimal("4.7")
     assert row.values["stock"] == 12
 
     assert lookup.sku == "SKU-groceries-tea-10"
-    assert lookup.unit_price_usd == Decimal("4.99")   
+    assert lookup.unit_price_usd == Decimal("4.99")
+    assert lookup.discount_pct == Decimal("0.1250")

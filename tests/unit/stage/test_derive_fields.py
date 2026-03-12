@@ -39,5 +39,3 @@ def test_derive_fields_happy_path() -> None:
     assert gross == Decimal("9.98")
     assert discount_pct == Decimal("0.2505")
     assert net == Decimal("7.48")
-
-

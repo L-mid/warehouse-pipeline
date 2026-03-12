@@ -13,7 +13,7 @@ from warehouse_pipeline.orchestration.contract import RunManifest
 
 def _jsonable(value: Any) -> Any:
     """Makes values jsonable, best effort only."""
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return _jsonable(asdict(value))
     if isinstance(value, dict):
         return {str(k): _jsonable(v) for k, v in value.items()}
@@ -34,10 +34,10 @@ def manifest_path(run_dir: Path) -> Path:
     """Makes a standard path for one single run's manifest."""
     return run_dir / "manifest.json"
 
+
 def manifest_to_dict(manifest: RunManifest) -> dict[str, Any]:
     """Convert the manifest into a JSON-safe dict so it can be written."""
     return _jsonable(asdict(manifest))
-
 
 
 def write_manifest(*, run_dir: Path, manifest: RunManifest) -> Path:
@@ -50,9 +50,7 @@ def write_manifest(*, run_dir: Path, manifest: RunManifest) -> Path:
 
     path = manifest_path(run_dir)
     path.write_text(
-        json.dumps(manifest_to_dict(manifest), indent=2, sort_keys=True),   # keys are sorted.
+        json.dumps(manifest_to_dict(manifest), indent=2, sort_keys=True),  # keys are sorted.
         encoding="utf-8",
     )
     return path
-
-
