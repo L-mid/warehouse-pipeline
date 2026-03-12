@@ -1,6 +1,15 @@
 # Changelog
 
 ## Unreleased
+### Added
+- New live mode test that broadly tests results from live http requests off dummy json.
+- CI marker `non_ci` to avoid CI testing certain tests (such as the live http one).
+
+### Fixed
+- Live mode bug where a `NotImplementedError` was being raised on the path despite being implemented.
+- Docker no longer errors hard on tests when unavailble, now skips via fixutres (finally).
+- Linters, type checkers, and formatting no longer disabled and now required on pre-commit.
+- Minor typing and line length fixes everywhere to make ruff and pyright checks finally pass.
 
 ## v0.3.0 - 2026-03-09
 ### Added
