@@ -11,4 +11,3 @@ SELECT
 FROM v_fact_orders_latest fo
 GROUP BY 1
 ORDER BY distinct_paid_customers DESC, fo.country ASC;
-

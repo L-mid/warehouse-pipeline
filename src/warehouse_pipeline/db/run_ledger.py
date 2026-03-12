@@ -30,8 +30,8 @@ def create_run(conn: Connection, *, entry: RunStart) -> UUID:
     Inserts a new `run_ledger` row and return its `run_id`.
     """
     row = conn.execute(  # inject in dc
-        """ 
-        INSERT INTO run_ledger (    
+        """
+        INSERT INTO run_ledger (
             source_system,
             mode,
             snapshot_key,

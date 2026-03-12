@@ -61,7 +61,7 @@ class FakeConnection:
 
     def cursor(self) -> FakeCursor:
         """
-        Return the mocked `FakeCursor` implementation 
+        Return the mocked `FakeCursor` implementation
         as the replacement `cursor` function for `psycopg`.
         """
         return FakeCursor(self)

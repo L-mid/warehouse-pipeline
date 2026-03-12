@@ -12,7 +12,7 @@ class StagingTableSpec:
     Whitelisted staging table SQL values.
 
     - `columns` excludes `run_id` and `created_at`.
-    - `key_cols` are the per-run key columns (excluding `run_id`). 
+    - `key_cols` are the per-run key columns (excluding `run_id`).
     They match this staging PK shape:
     `PRIMARY KEY (run_id, *key_cols)`.
     """

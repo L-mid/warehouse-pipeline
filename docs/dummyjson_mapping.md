@@ -1,4 +1,4 @@
-## DummyJSON to staging mapping 
+## DummyJSON to staging mapping
 
 This project reads three DummyJSON-shaped inputs and maps them into four staging tables.
 

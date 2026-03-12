@@ -23,4 +23,4 @@ Template:
 - Consequences:
   - Onboarding is smoother.
   - Live mode remains available but not required.
-  - Must maintain and test two paths for online and offline mode. 
+  - Must maintain and test two paths for online and offline mode.

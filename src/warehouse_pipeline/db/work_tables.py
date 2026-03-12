@@ -210,7 +210,7 @@ def flush_work_table(conn: Connection, *, table_name: str, run_id: UUID) -> tupl
 
 def _duplicate_reason_detail_expr(spec: StagingTableSpec) -> sql.Composable:
     """
-    Returns an SQL expression for `reject_rows.reason_detail` 
+    Returns an SQL expression for `reject_rows.reason_detail`
     on duplicate keys for good injection.
     """
     parts: list[sql.Composable] = []

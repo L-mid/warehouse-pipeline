@@ -16,7 +16,7 @@ def test_run_sql_text_happy_path() -> None:
     run_sql_text(
         conn,
         # basic sql commands
-        sql_text="""    
+        sql_text="""
         SELECT 1;
         SELECT 2;
         """,

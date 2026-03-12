@@ -8,4 +8,3 @@ SELECT
 FROM v_fact_orders_latest fo
 GROUP BY 1
 ORDER BY paid_orders DESC, fo.country ASC;
-

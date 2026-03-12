@@ -17,4 +17,4 @@ WITH product_week AS (
 )
 SELECT *
 FROM product_week
-ORDER BY week_start ASC, revenue_usd DESC, sku ASC; 
+ORDER BY week_start ASC, revenue_usd DESC, sku ASC;

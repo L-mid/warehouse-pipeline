@@ -1,4 +1,4 @@
--- Business outputs as SQL views. 
+-- Business outputs as SQL views.
 -- each view reports the latest succeeded run for its sourced staging table.
 
 

@@ -15,5 +15,3 @@ JOIN v_fact_order_items_latest foi
 WHERE fo.status = 'paid'
 GROUP BY 1
 ORDER BY 1;
-
-

@@ -35,4 +35,3 @@ SELECT
 FROM i
 LEFT JOIN o   -- leave `order_id` null if orphaned
   ON o.order_id = i.order_id;
-

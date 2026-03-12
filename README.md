@@ -1,7 +1,7 @@
 # warehouse-pipeline
-This is a Postgres staging ingest with rejects, data quality metrics, and exposing some explicit business SQL views. 
+This is a Postgres staging ingest with rejects, data quality metrics, and exposing some explicit business SQL views.
 
-## This project demonstrates an example pipeline for: 
+## This project demonstrates an example pipeline for:
 - A Postgres-backed pipeline.
 - Snapshot and live extract modes from `https://dummyjson.com/`.
 - Typed mapping into `stg_*` in Postgres.
@@ -33,13 +33,13 @@ python -m pip install -U pip
 pip install -e ".[dev]"
 
 # Boots up your local docker, runs a fast snapshot smoke pipeline, and runs tests.
-make demo 
+make demo
 ```
 
 
 ## Run a snapshot pipeline execution
 ```powershell
-# ensures docker is up on a fresh container instance 
+# ensures docker is up on a fresh container instance
 make down
 make up
 pipeline db init
@@ -69,16 +69,16 @@ Get-Content -Raw "sql\publish\metrics\051_fanout_trap_right.sql" | docker compos
 ```
 
 
-## Other useful commands: 
+## Other useful commands:
 ```powershell
 # Inspect the DB with psql, anytime:
-docker compose exec db psql -U postgres -d warehouse 
+docker compose exec db psql -U postgres -d warehouse
 # \q to quit
 
 # fully resets the DB to a fresh instance:
-make down               
+make down
 make up
-pipeline db init    
+pipeline db init
 
 
 # run tests only
@@ -98,7 +98,5 @@ Pipeline tested with the sepearation of:
 - Heavy integration tests (slower larger tests)
 
 Additionally:
-- Tests use their own DB connection: `WAREHOUSE_TEST_DSN`. 
-- CI runs `make demo` on every push (runs unit + integration). 
-
-
+- Tests use their own DB connection: `WAREHOUSE_TEST_DSN`.
+- CI runs `make demo` on every push (runs unit + integration).

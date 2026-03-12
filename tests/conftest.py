@@ -11,7 +11,7 @@ import pytest
 
 def _find_repo_root(start: Path) -> Path:
     """
-    Walks upward until finding `pyproject.toml`. 
+    Walks upward until finding `pyproject.toml`.
     Allows tests to run from anywhere under `tests/`.
     """
     marker = "pyproject.toml"

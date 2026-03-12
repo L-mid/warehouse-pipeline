@@ -37,7 +37,7 @@ def _run_sql_file(conn: psycopg.Connection, sql_path: Path) -> None:
 
 def _apply_sql_dir(conn: psycopg.Connection, dir_path: Path) -> None:
     """
-    Reads and runs provided SQL in a directory path. 
+    Reads and runs provided SQL in a directory path.
     Will execute all files found in ASC order.
     """
     for p in sorted(dir_path.glob("*.sql")):
@@ -58,7 +58,7 @@ def _drop_public_schema(conn: psycopg.Connection) -> None:
 @pytest.fixture(scope="session")
 def repo_root() -> Path:
     """
-    Recomputes pathwalk to root directory for integration scope. 
+    Recomputes pathwalk to root directory for integration scope.
     Uses `pyproject.toml` as its root marker.
     """
     marker = "pyproject.toml"
@@ -146,7 +146,7 @@ def reinit_schema(wait_for_db: None, dsn: str, repo_root: Path) -> None:
     """
     Fully drops and reinitalizes the Postgres schema for each test.
     """
-    # for now only, stops 'IF NOT EXISTS' schema drift failing tests. 
+    # for now only, stops 'IF NOT EXISTS' schema drift failing tests.
     # reconsider once schema is finished
 
     sql_root = repo_root / "sql"

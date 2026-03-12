@@ -29,10 +29,10 @@ CREATE TABLE IF NOT EXISTS stg_customers (
     last_name           text,
     full_name           text,           -- derived in staging. first_name || ' ' || last_name.
     email               text,
-    phone               text, 
+    phone               text,
     city                text,
     country             text,
-    company             text,             
+    company             text,
     created_at          timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (run_id, customer_id)
 );
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS stg_products (
 
 
 -- stg_orders           (from carts.json)
--- grain is one row per (run_id, order_id)  
+-- grain is one row per (run_id, order_id)
 -- and [order_id == cart id]
 CREATE TABLE IF NOT EXISTS stg_orders (
     run_id          uuid NOT NULL REFERENCES run_ledger(run_id) ON DELETE CASCADE,
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS stg_order_items (
 );
 
 
- 
+
 -- reject_rows
 -- Grain is one row per rejected row (all table fields non-null)
 CREATE TABLE IF NOT EXISTS reject_rows (
@@ -124,7 +124,3 @@ CREATE TABLE IF NOT EXISTS dq_results (
     created_at      timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (run_id, table_name, check_name, metric_name)
 );
-
-
-
-

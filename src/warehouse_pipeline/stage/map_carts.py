@@ -87,8 +87,8 @@ def map_carts(
                         source_ref=line_source_ref,
                         raw_payload=raw_line,
                         reason_code="unknown_product",
-                        reason_detail=f"product_id {item.id} was referenced by cart {cart.id} " \
-                                        "but not found in the product lookup",
+                        reason_detail=f"product_id {item.id} was referenced by cart {cart.id} "
+                        "but not found in the product lookup",
                     )
                 )
                 continue

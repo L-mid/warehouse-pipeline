@@ -45,7 +45,7 @@ def resolve_sql_plan(
     sql_dir: Path | None = None,
 ) -> SqlPlan:
     """
-    Resolves SQL files to run for a given transform step. 
+    Resolves SQL files to run for a given transform step.
     Returns an object with all needed data to exceute.
     """
     resolved_sql_dir = (sql_dir or DEFAULT_SQL_DIR).resolve()  # optionally provide custom path

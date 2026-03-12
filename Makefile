@@ -10,7 +10,7 @@ up:
 down:
 	docker compose down -v
 
-init: 
+init:
 	pipeline db init
 
 test:
@@ -35,7 +35,7 @@ print('Usage: make release VERSION=v0.1.0') or sys.exit(2) if not v else None" "
 	@echo "Tagged $(VERSION). Next: git push && git push --tags"
 
 
-	
+
 ## formatting and extras
 
 PY := python

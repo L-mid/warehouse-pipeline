@@ -24,7 +24,7 @@ class SnapshotStore:
 
     def write_json(self, name: str, payload: Mapping[str, Any]) -> Path:
         """
-        Write a `.json` file automically to an expected path. 
+        Write a `.json` file automically to an expected path.
         Returns the path it used as `final_path`.
         """
         self.root.mkdir(parents=True, exist_ok=True)
