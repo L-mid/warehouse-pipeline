@@ -62,7 +62,7 @@ class DummyProduct(ExtractModel):
     stock: int = Field(ge=0)
 
     brand: str | None = None
-    discountedTotal: float | None = Field(default=None, ge=0)
+    discountPercentage: float | None = Field(default=None, ge=0, le=100)
     rating: float | None = Field(default=None, ge=0)
 
     @field_validator("title", "category")
@@ -76,12 +76,14 @@ class DummyProduct(ExtractModel):
 
 
 class DummyCartProduct(ExtractModel):
-    """Defining a cart's inner product."""
+    """Defining a Cart's inner product."""
 
     id: int = Field(gt=0)
+    title: str | None = None
     quantity: int = Field(ge=0)
     price: float = Field(ge=0)
     total: float = Field(ge=0)
+    discountPercentage: float | None = Field(default=None, ge=0, le=100)
     discountedTotal: float | None = Field(default=None, ge=0)
 
 
