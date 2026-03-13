@@ -5,7 +5,10 @@
       "title": "Tea",
       "category": "groceries",
       "price": 4.99,
-      "stock": 12
+      "stock": 12,
+      "brand": "Tea Co",
+      "discountPercentage": 12.5,
+      "rating": 4.7
     }
   ],
   "total": 1,

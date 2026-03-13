@@ -16,7 +16,7 @@ def test_map_products_happy_path() -> None:
             price=4.99,
             stock=12,
             brand="Tea Co",
-            discountedTotal=12.5,
+            discountPercentage=12.5,
             rating=4.7,
         )
     ]

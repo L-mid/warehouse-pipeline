@@ -40,7 +40,7 @@ def map_products(products: Iterable[DummyProduct]) -> MappedProducts:
 
         sku = derive_sku(product_id=product.id, category=category, title=title)
         price_usd = quantize_money(product.price)
-        discount_pct = derive_product_discount_fraction(product.discountedTotal)
+        discount_pct = derive_product_discount_fraction(product.discountPercentage)
         brand = normalize_text(product.brand)
         rating = to_decimal(product.rating) if product.rating is not None else None
 

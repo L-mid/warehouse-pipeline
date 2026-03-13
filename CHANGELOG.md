@@ -6,6 +6,7 @@
 - CI marker `non_ci` to avoid CI testing certain tests (such as the live http one).
 
 ### Fixed
+- Patched and double checked any schema mismatch bugs for what is staged vs live `DummyJson`.
 - Live mode bug where a `NotImplementedError` was being raised on the path despite being implemented.
 - Docker no longer errors hard on tests when unavailble, now skips via fixutres (finally).
 - Linters, type checkers, and formatting no longer disabled and now required on pre-commit.
