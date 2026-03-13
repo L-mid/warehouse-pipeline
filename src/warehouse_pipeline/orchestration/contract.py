@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
@@ -19,7 +19,7 @@ class RunSpec:
     """
 
     mode: Literal[
-        "snapshot", "live"
+        "snapshot", "live", "incremental"
     ]  # `snapshot` is a perisisted write of the API. `live` extracts live.
     source_system: str = "dummyjson"
     snapshot_key: str | None = "v1"  # `v1` | `smoke`
@@ -31,14 +31,20 @@ class RunSpec:
     publish_views: bool = True
     args_json: dict[str, Any] = field(default_factory=dict)
 
+    # incremental fields that are ignored for snapshot/live
+    watermark_column: str = "order_ts"
+    since: datetime | None = None  # explicit low-watermark override
+    until: datetime | None = None  # explicit high-watermark override
+    overlap_window: timedelta = field(default_factory=timedelta)
+
     def resolved_snapshot_root(self) -> Path:
         """If doing `snapshot` mode, locate key its key."""
         if self.mode != "snapshot":
-            raise ValueError("resolved_snapshot_root() is only valid for snapshot runs")
+            raise ValueError("`resolved_snapshot_root()` is only valid for snapshot runs")
         if self.snapshot_root is not None:
             return self.snapshot_root.resolve()
         if not self.snapshot_key:
-            raise ValueError("snapshot_key is required when mode='snapshot'")
+            raise ValueError("`snapshot_key` is required when mode='snapshot'")
         return snapshot_root_for_key(self.snapshot_key)
 
 
@@ -67,3 +73,5 @@ class RunManifest:
     timings_s: dict[str, float]
     artifacts: dict[str, str]
     error_message: str | None = None
+
+    extraction_window: dict[str, Any] = field(default_factory=dict)

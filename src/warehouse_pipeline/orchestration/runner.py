@@ -7,21 +7,31 @@ from time import perf_counter
 from typing import Any
 from uuid import UUID
 
+from psycopg import Connection
+
 from warehouse_pipeline.db.connect import connect
 from warehouse_pipeline.db.run_ledger import (
     RunStart,
     create_run,
+    get_last_successful_watermark,
     mark_run_failed,
     mark_run_succeeded,
+    record_extraction_window,
 )
 from warehouse_pipeline.dq.gates import GateDecision, evaluate_stage_gates
 from warehouse_pipeline.dq.runner import DQRunSummary, run_stage_dq
 from warehouse_pipeline.extract import fetch_live_bundle, read_snapshot_bundle
 from warehouse_pipeline.extract.bundles import ExtractBundle
+from warehouse_pipeline.extract.filters import filter_bundle_to_window
 from warehouse_pipeline.orchestration.contract import RunManifest, RunSpec
+from warehouse_pipeline.orchestration.extraction_window import (
+    ExtractionWindow,
+    resolve_extraction_window,
+)
 from warehouse_pipeline.orchestration.logging import RunLogger
 from warehouse_pipeline.orchestration.manifest import write_manifest
 from warehouse_pipeline.publish.views import PublishResult, apply_views
+from warehouse_pipeline.stage.derive_fields import derive_order_ts
 from warehouse_pipeline.stage.load import load_mapped_batches
 from warehouse_pipeline.stage.map_carts import map_carts
 from warehouse_pipeline.stage.map_products import map_products
@@ -52,14 +62,106 @@ def _run_artifacts_dir(spec: RunSpec, run_id: UUID) -> Path:
     return spec.runs_root.resolve() / str(run_id)
 
 
-def _extract_bundle(spec: RunSpec) -> ExtractBundle:
-    """Extractions of either the `snapshot` mode OR the `live` mode expectaions."""
+def _resolve_and_record_window(
+    conn: Connection,
+    *,
+    spec: RunSpec,
+    run_id: UUID,
+    started_at: datetime,
+    logger: RunLogger,
+) -> ExtractionWindow:
+    """
+    Compute the extraction window for an incremental run,
+    stamp it onto run_ledger, and log it.
+    """
+    prior = get_last_successful_watermark(
+        conn,
+        source_system=spec.source_system,
+        watermark_column=spec.watermark_column,
+    )
+
+    window = resolve_extraction_window(
+        watermark_column=spec.watermark_column,
+        prior_watermark=prior,
+        run_started_at=started_at,
+        since=spec.since,
+        until=spec.until,
+        overlap=spec.overlap_window,
+    )
+
+    record_extraction_window(
+        conn,
+        run_id=run_id,
+        watermark_column=window.watermark_column,
+        watermark_low=window.low,
+        watermark_high=window.high,
+    )
+    conn.commit()  # window survives a later rollback on error
+
+    logger.event(
+        "extraction_window_resolved",
+        watermark_column=window.watermark_column,
+        low=window.low.isoformat(),
+        high=window.high.isoformat(),
+        prior_watermark=prior.isoformat() if prior else None,
+        overlap_s=window.overlap.total_seconds(),
+        is_first_run=window.is_first_run,
+    )
+
+    return window
+
+
+def _extract_bundle(
+    spec: RunSpec,
+    *,
+    window: ExtractionWindow | None = None,
+) -> tuple[ExtractBundle, dict[str, Any]]:
+    """Extractions of any mode's expectaions."""
+    empty_window_meta: dict[str, Any] = {}
+
     # snapshot path
     if spec.mode == "snapshot":
         snapshot_root = spec.resolved_snapshot_root()
-        return read_snapshot_bundle(snapshot_root=snapshot_root, snapshot_key=spec.snapshot_key)
+        bundle = read_snapshot_bundle(
+            snapshot_root=snapshot_root,
+            snapshot_key=spec.snapshot_key,
+        )
+        return bundle, empty_window_meta
+
     # live mode path
-    return fetch_live_bundle(page_size=spec.page_size)
+    bundle = fetch_live_bundle(page_size=spec.page_size)
+
+    if spec.mode == "live":
+        return bundle, empty_window_meta
+
+    # incremental client side filter
+    assert window is not None, "incremental mode requires a resolved window"
+
+    # IF swapping sources, this line changes
+    # Right now for DummyJson, uses the derived order_ts
+    def _cart_ts(cart):
+        return derive_order_ts(cart_id=cart.id, user_id=cart.userId)
+
+    # bundle and rows
+    filtered_bundle, total_pre_filter = filter_bundle_to_window(
+        bundle,
+        window=window,
+        cart_ts_func=_cart_ts,
+    )
+
+    window_meta = {
+        "mode": "incremental",
+        "watermark_column": window.watermark_column,
+        "low": window.low.isoformat(),
+        "high": window.high.isoformat(),
+        "overlap_applied_s": window.overlap.total_seconds(),
+        "prior_watermark": (window.prior_watermark.isoformat() if window.prior_watermark else None),
+        "is_first_run": window.is_first_run,
+        "carts_pre_filter": total_pre_filter,
+        "carts_post_filter": len(filtered_bundle.carts),
+    }
+
+    return filtered_bundle, window_meta
 
 
 def _summarize_extract(bundle: ExtractBundle) -> dict[str, Any]:
@@ -183,14 +285,29 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
         logger.event("run_started", mode=spec.mode, source_system=spec.source_system)
 
         try:
+            ## -- extraction window for incremental mode
+            window: ExtractionWindow | None = None
+            window_meta: dict[str, Any] = {}
+
+            if spec.mode == "incremental":
+                window = _resolve_and_record_window(
+                    conn,
+                    spec=spec,
+                    run_id=run_id,
+                    started_at=started_at,
+                    logger=logger,
+                )
+
             ## -- extraction
             t0 = perf_counter()
             logger.phase_started("extract")
-            bundle = _extract_bundle(spec)
+            bundle, window_meta = _extract_bundle(spec, window=window)
             extract_summary = _summarize_extract(bundle)
             timings_s["extract"] = perf_counter() - t0
             logger.phase_finished(
-                "extract", duration_s=timings_s["extract"], counts=extract_summary["counts"]
+                "extract",
+                duration_s=timings_s["extract"],
+                counts=extract_summary["counts"],
             )
 
             ## -- map obtained to staging
@@ -309,6 +426,7 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
             mode=spec.mode,
             status=status,
             source_system=spec.source_system,
+            extraction_window=window_meta,
             snapshot_key=spec.snapshot_key if spec.mode == "snapshot" else None,  # default snapshot
             started_at=started_at,
             finished_at=finished_at,

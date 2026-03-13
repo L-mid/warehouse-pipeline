@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID
@@ -23,6 +24,7 @@ def test_handle_run_snapshot_happy_path(monkeypatch, capsys) -> None:
             status="succeeded",
             mode=spec.mode,
             artifacts={"manifest": "/tmp/fake-manifest.json"},
+            extraction_window={},
         )
 
     monkeypatch.setattr(run_cmd, "run_pipeline", fake_run_pipeline)
@@ -33,6 +35,10 @@ def test_handle_run_snapshot_happy_path(monkeypatch, capsys) -> None:
         snapshot_key="smoke",
         runs_root="tmp-runs",
         page_size=25,
+        watermark_column="order_ts",
+        since=None,
+        until=None,
+        overlap=timedelta(0),
     )
 
     rc = run_cmd.handle_run(args)
@@ -65,6 +71,7 @@ def test_handle_run_live_happy_path(monkeypatch, capsys) -> None:
             status="succeeded",
             mode=spec.mode,
             artifacts={"manifest": "/tmp/fake-live-manifest.json"},
+            extraction_window={},
         )
 
     monkeypatch.setattr(run_cmd, "run_pipeline", fake_run_pipeline)
@@ -75,6 +82,10 @@ def test_handle_run_live_happy_path(monkeypatch, capsys) -> None:
         snapshot_key="smoke",
         runs_root="tmp-runs",
         page_size=100,
+        watermark_column="order_ts",
+        since=None,
+        until=None,
+        overlap=timedelta(0),
     )
 
     rc = run_cmd.handle_run(args)
