@@ -8,7 +8,16 @@ from typing import Any, LiteralString
 import psycopg
 import pytest
 
+import warehouse_pipeline.orchestration.runner as runner_mod
 from warehouse_pipeline.cli.main import main
+from warehouse_pipeline.extract.bundles import ExtractBundle
+from warehouse_pipeline.extract.models import (
+    DummyAddress,
+    DummyCart,
+    DummyCartProduct,
+    DummyProduct,
+    DummyUser,
+)
 
 
 def _read_json(path: Path) -> dict:
@@ -29,15 +38,22 @@ def _tail_lines(path: Path, *, n: int = 20) -> list[str]:
 def _collect_pipeline_debug(*, dsn: str, run_artifacts_dir: Path) -> dict:
     """Collect diagnostic data from a run and return in a `debug` `dict`."""
     run_dirs = sorted(p for p in run_artifacts_dir.iterdir() if p.is_dir())
-    latest_run_dir = run_dirs[-1] if run_dirs else None
 
     manifest = {}
     log_tail: list[str] = []
-    if latest_run_dir is not None:
-        manifest = _read_json(latest_run_dir / "manifest.json")
-        log_tail = _tail_lines(latest_run_dir / "logs.jsonl", n=40)
 
     with psycopg.connect(dsn, autocommit=True) as conn:
+        latest_row = conn.execute(
+            """
+            SELECT run_id::text
+            FROM run_ledger
+            ORDER BY started_at DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+        latest_run_id = latest_row[0] if latest_row is not None else None
+
         ledger_rows = conn.execute(
             """
             SELECT
@@ -45,7 +61,10 @@ def _collect_pipeline_debug(*, dsn: str, run_artifacts_dir: Path) -> dict:
                 mode,
                 COALESCE(snapshot_key, ''),
                 status,
-                COALESCE(error_message, '')
+                COALESCE(error_message, ''),
+                watermark_column,
+                watermark_low::text,
+                watermark_high::text
             FROM run_ledger
             ORDER BY started_at DESC
             LIMIT 5
@@ -94,6 +113,11 @@ def _collect_pipeline_debug(*, dsn: str, run_artifacts_dir: Path) -> dict:
             """
         ).fetchall()
 
+    if latest_run_id is not None:
+        latest_run_dir = run_artifacts_dir / latest_run_id
+        manifest = _read_json(latest_run_dir / "manifest.json")
+        log_tail = _tail_lines(latest_run_dir / "logs.jsonl", n=40)
+
     return {
         "run_dirs": [p.name for p in run_dirs],
         "manifest": manifest,
@@ -126,6 +150,116 @@ def _assert_artifacts_exist(manifest: dict) -> None:
     assert Path(artifacts["run_dir"]).exists()
     assert Path(artifacts["manifest"]).exists()
     assert Path(artifacts["logs"]).exists()
+
+
+## -- these exist to avoid http calls. and yes should probaby be in conftest/helpers later
+def _fake_user(user_id: int, *, country: str = "UK") -> DummyUser:
+    """Return a fake user's info."""
+    return DummyUser(
+        id=user_id,
+        firstName=f"User{user_id}",
+        lastName="Test",
+        email=f"user{user_id}@example.com",
+        phone="000000",
+        address=DummyAddress(city="London", country=country),
+        company=None,
+    )
+
+
+def _fake_product(product_id: int, *, title: str, price: float) -> DummyProduct:
+    """Return a fake product's info."""
+    return DummyProduct(
+        id=product_id,
+        title=title,
+        category="widgets",
+        price=price,
+        stock=100,
+        brand="Acme",
+        discountPercentage=0.0,
+        rating=4.5,
+    )
+
+
+def _fake_line(
+    product_id: int,
+    *,
+    quantity: int,
+    price: float,
+    title: str | None = None,
+    discounted_total: float | None = None,
+) -> DummyCartProduct:
+    """Return a fake cart product line."""
+    total = round(quantity * price, 2)
+    return DummyCartProduct(
+        id=product_id,
+        title=title or f"Product {product_id}",
+        quantity=quantity,
+        price=price,
+        total=total,
+        discountPercentage=0.0,
+        discountedTotal=discounted_total if discounted_total is not None else total,
+    )
+
+
+def _fake_cart(
+    cart_id: int,
+    user_id: int,
+    *lines: DummyCartProduct,
+    discounted_total: float | None = None,
+) -> DummyCart:
+    """Return a fake cart's info."""
+    total = round(sum(float(line.total) for line in lines), 2)
+    discounted = round(
+        discounted_total
+        if discounted_total is not None
+        else sum(float(line.discountedTotal or line.total) for line in lines),
+        2,
+    )
+    total_quantity = sum(line.quantity for line in lines)
+
+    return DummyCart(
+        id=cart_id,
+        userId=user_id,
+        total=total,
+        discountedTotal=discounted,
+        totalProducts=len(lines),
+        totalQuantity=total_quantity,
+        products=list(lines),
+    )
+
+
+def _fake_live_bundle(*, carts: tuple[DummyCart, ...]) -> ExtractBundle:
+    """
+    Fake creating a fake extract bundle out
+    of all the fake parsed info to hand over.
+    """
+    users = (
+        _fake_user(1, country="UK"),
+        _fake_user(2, country="CA"),
+    )
+    products = (
+        _fake_product(100, title="Widget Basic", price=10.0),
+        _fake_product(101, title="Widget Plus", price=15.0),
+        _fake_product(200, title="Widget Max", price=40.0),
+    )
+
+    return ExtractBundle(
+        mode="live",
+        users=users,
+        products=products,
+        carts=carts,
+        totals={
+            "users": len(users),
+            "products": len(products),
+            "carts": len(carts),
+        },
+        pages_fetched={
+            "users": 1,
+            "products": 1,
+            "carts": 1,
+        },
+        page_size=100,
+    )
 
 
 @pytest.mark.docker_required
@@ -168,6 +302,163 @@ def test_cli_run_pipeline_happy_path(
     assert debug["table_counts"]["v_fact_orders_latest"] == 1
 
     # run success!
+
+
+@pytest.mark.docker_required
+@pytest.mark.heavy_integration
+def test_cli_run_pipeline_incremental_default_overlap_reprocesses_recent_rows(
+    reinit_schema,
+    dsn: str,
+    run_artifacts_dir,
+    monkeypatch,
+) -> None:
+    """
+    Show how overlap-window incrementals work.
+    (patched with non-http calling mock extractor)
+
+    The first run seeds the watermark with an explicit since/until,
+    second run uses the default 7-day overlap against the prior watermark.
+    """
+    monkeypatch.setenv("WAREHOUSE_DSN", dsn)
+
+    # order_id=20 lands early in the synthetic year, so outside the trailing overlap
+    old_order = _fake_cart(
+        20,
+        2,
+        _fake_line(200, quantity=1, price=40.0, discounted_total=40.0),
+        discounted_total=40.0,
+    )
+
+    # order_id=350 lands in mid-December under derive_order_ts, so inside the overlap
+    recent_order_v1 = _fake_cart(
+        350,
+        1,
+        _fake_line(100, quantity=1, price=10.0, discounted_total=10.0),
+        _fake_line(101, quantity=1, price=15.0, discounted_total=15.0),
+        discounted_total=25.0,
+    )
+    recent_order_v2 = _fake_cart(
+        350,
+        1,
+        _fake_line(100, quantity=1, price=12.0, discounted_total=12.0),
+        discounted_total=12.0,
+    )
+
+    bundles = [
+        _fake_live_bundle(carts=(old_order, recent_order_v1)),
+        _fake_live_bundle(carts=(old_order, recent_order_v2)),
+    ]
+    seen_page_sizes: list[int] = []
+
+    def fake_fetch_live_bundle(*, page_size: int = 100) -> ExtractBundle:
+        """Fake fetch mock bundle."""
+        seen_page_sizes.append(page_size)
+        assert bundles, "unexpected extra live fetch"
+        return bundles.pop(0)
+
+    monkeypatch.setattr(runner_mod, "fetch_live_bundle", fake_fetch_live_bundle)
+
+    # seeds the watermark explicitly
+    rc1 = main(
+        [
+            "run",
+            "--mode",
+            "incremental",
+            "--since",
+            "2024-01-01T00:00:00+00:00",
+            "--until",
+            "2024-12-20T00:00:00+00:00",
+            "--runs-root",
+            str(run_artifacts_dir),
+        ]
+    )
+
+    assert rc1 == 0
+
+    # second run should use prior_watermark, 7 days
+    rc2 = main(
+        [
+            "run",
+            "--mode",
+            "incremental",
+            "--runs-root",
+            str(run_artifacts_dir),
+        ]
+    )
+
+    debug = _collect_pipeline_debug(dsn=dsn, run_artifacts_dir=run_artifacts_dir)
+    assert rc2 == 0, _failure_blob(rc=rc2, debug=debug)
+    assert seen_page_sizes == [100, 100]
+
+    manifest = debug["manifest"]
+    assert manifest["status"] == "succeeded"
+    assert manifest["mode"] == "incremental"
+
+    ew = manifest["extraction_window"]
+    assert ew["mode"] == "incremental"
+    assert ew["watermark_column"] == "order_ts"
+    assert ew["prior_watermark"] == "2024-12-20T00:00:00+00:00"
+    assert ew["low"] == "2024-12-13T00:00:00+00:00"
+    assert ew["high"] == "2024-12-31T00:00:00+00:00"
+    assert ew["overlap_applied_s"] == 7 * 24 * 60 * 60
+    assert ew["carts_pre_filter"] == 2
+    assert ew["carts_post_filter"] == 1
+
+    assert debug["table_counts"]["run_ledger"] == 2
+    assert debug["table_counts"]["fact_orders"] == 2
+    assert debug["table_counts"]["fact_order_items"] == 2
+
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        run_ids = conn.execute(
+            """
+            SELECT run_id::text
+            FROM run_ledger
+            WHERE mode = 'incremental'
+            ORDER BY started_at ASC
+            """
+        ).fetchall()
+        assert len(run_ids) == 2
+
+        first_run_id = run_ids[0][0]
+        second_run_id = run_ids[1][0]
+
+        order_20 = conn.execute(
+            """
+            SELECT total_usd::text, source_run_id::text
+            FROM fact_orders
+            WHERE order_id = 20
+            """
+        ).fetchone()
+        order_350 = conn.execute(
+            """
+            SELECT total_usd::text, source_run_id::text
+            FROM fact_orders
+            WHERE order_id = 350
+            """
+        ).fetchone()
+
+        items_20 = conn.execute(
+            """
+            SELECT line_id, net_usd::text, source_run_id::text
+            FROM fact_order_items
+            WHERE order_id = 20
+            ORDER BY line_id
+            """
+        ).fetchall()
+        items_350 = conn.execute(
+            """
+            SELECT line_id, product_id, net_usd::text, source_run_id::text
+            FROM fact_order_items
+            WHERE order_id = 350
+            ORDER BY line_id
+            """
+        ).fetchall()
+
+    assert order_20 == ("40.00", first_run_id)
+    assert order_350 == ("12.00", second_run_id)
+
+    assert items_20 == [(1, "40.00", first_run_id)]
+    assert items_350 == [(1, 100, "12.00", second_run_id)]
 
 
 @pytest.mark.heavy_integration

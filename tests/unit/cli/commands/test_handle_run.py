@@ -7,6 +7,8 @@ from types import SimpleNamespace
 from uuid import UUID
 
 import warehouse_pipeline.cli.commands.run as run_cmd
+from warehouse_pipeline.cli.main import build_parser
+from warehouse_pipeline.orchestration.contract import DEFAULT_INCREMENTAL_OVERLAP_WINDOW
 
 
 def test_handle_run_snapshot_happy_path(monkeypatch, capsys) -> None:
@@ -142,3 +144,19 @@ def test_handle_run_incremental_happy_path(monkeypatch, capsys) -> None:
     assert seen["spec"].watermark_column == "order_ts"
     assert "mode=incremental" in out
     assert "window: 2024-01-01T00:00:00+00:00 to 2025-01-01T00:00:00+00:00" in out
+
+
+def test_build_parser_incremental_default_overlap_is_7_days() -> None:
+    """Default overlap is actually 7 days."""
+    parser = build_parser()
+    args = parser.parse_args(["run", "--mode", "incremental"])
+
+    assert args.overlap == DEFAULT_INCREMENTAL_OVERLAP_WINDOW
+    assert args.overlap == timedelta(days=7)
+
+
+def test_parse_overlap_accepts_days_hours_and_minutes() -> None:
+    """Overlap parser accepts the examples in help correctly."""
+    assert run_cmd._parse_overlap("7d") == timedelta(days=7)
+    assert run_cmd._parse_overlap("2d6h30m") == timedelta(days=2, hours=6, minutes=30)
+    assert run_cmd._parse_overlap("45m") == timedelta(minutes=45)

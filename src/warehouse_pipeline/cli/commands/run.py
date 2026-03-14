@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from warehouse_pipeline.orchestration import RunSpec, run_pipeline
+from warehouse_pipeline.orchestration.contract import DEFAULT_INCREMENTAL_OVERLAP_WINDOW
 
 
 def register_run_commands(subparsers: argparse._SubParsersAction) -> None:
@@ -55,28 +56,35 @@ def register_run_commands(subparsers: argparse._SubParsersAction) -> None:
         "--until",
         type=datetime.fromisoformat,
         default=None,
-        help="Explicit high watermark (ISO timestamp). Defaults to now.",
+        help="Explicit high watermark (ISO timestamp). Defaults to the source-specific high.",
     )
     run.add_argument(
         "--overlap",
         type=_parse_overlap,
-        default=timedelta(0),
-        help="Overlap window subtracted from prior watermark, e.g. '1h', '30m', '2h30m'.",
+        default=DEFAULT_INCREMENTAL_OVERLAP_WINDOW,
+        help=(
+            "Trailing overlap window subtracted from the prior watermark. "
+            "Examples: '7d', '1h', '30m', '2d6h30m'. Default: 7d."
+        ),
     )
+
     run.set_defaults(handler=handle_run)
 
 
 def _parse_overlap(value: str) -> timedelta:
     """Parse shorthand like '1h', '30m', '2h30m' into timedelta."""
     # re for shorthand
-    parts = re.match(r"(?:(\d+)h)?(?:(\d+)m)?", value)
-    if not parts or not any(parts.groups()):
+    value = value.strip().lower()
+    parts = re.fullmatch(r"(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?", value)
+
+    if not parts or not any(group is not None for group in parts.groups()):
         raise argparse.ArgumentTypeError(
-            f"Cannot parse overlap '{value}'. Use e.g. '1h', '30m', '2h30m'."
+            f"Cannot parse overlap '{value}'. Use e.g. '7d', '30m', '2d6h30m'."
         )
-    hours = int(parts.group(1) or 0)
-    minutes = int(parts.group(2) or 0)
-    return timedelta(hours=hours, minutes=minutes)
+    days = int(parts.group(1) or 0)
+    hours = int(parts.group(2) or 0)
+    minutes = int(parts.group(3) or 0)
+    return timedelta(days=days, hours=hours, minutes=minutes)
 
 
 def handle_run(args: argparse.Namespace) -> int:
