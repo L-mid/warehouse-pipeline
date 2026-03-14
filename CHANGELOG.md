@@ -2,7 +2,7 @@
 
 ## Unreleased
 ### Added
-- Stub incremental data pulling mode with watermarked windows, derived on `order_ts` for now.
+- Stub incremental data pulling mode with watermarked windows, derived on `order_ts` for now. Integration and unit tested.
 - New live mode test that broadly tests results from live http requests off dummy json.
 - CI marker `non_ci` to avoid CI testing certain tests (such as the live http one).
 

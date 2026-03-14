@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID
@@ -99,3 +99,46 @@ def test_handle_run_live_happy_path(monkeypatch, capsys) -> None:
     assert "status=succeeded" in out
     assert "mode=live" in out
     assert "manifest=/tmp/fake-live-manifest.json" in out
+
+
+def test_handle_run_incremental_happy_path(monkeypatch, capsys) -> None:
+    """Incremental mode passes and shows window time information."""
+    seen = {}
+
+    def fake_run_pipeline(spec):
+        seen["spec"] = spec
+        return SimpleNamespace(
+            run_id=UUID("00000000-0000-0000-0000-000000000333"),
+            status="succeeded",
+            mode=spec.mode,
+            artifacts={"manifest": "/tmp/fake-incremental-manifest.json"},
+            extraction_window={
+                "low": "2024-01-01T00:00:00+00:00",
+                "high": "2025-01-01T00:00:00+00:00",
+                "carts_pre_filter": 10,
+                "carts_post_filter": 10,
+            },
+        )
+
+    monkeypatch.setattr(run_cmd, "run_pipeline", fake_run_pipeline)
+
+    args = argparse.Namespace(
+        mode="incremental",
+        snapshot_key="smoke",
+        runs_root="tmp-runs",
+        page_size=100,
+        watermark_column="order_ts",
+        since=datetime.fromisoformat("2024-01-01T00:00:00+00:00"),
+        until=datetime.fromisoformat("2025-01-01T00:00:00+00:00"),
+        overlap=timedelta(0),
+    )
+
+    rc = run_cmd.handle_run(args)
+    out = capsys.readouterr().out
+
+    assert rc == 0
+    assert seen["spec"].mode == "incremental"
+    assert seen["spec"].snapshot_key is None
+    assert seen["spec"].watermark_column == "order_ts"
+    assert "mode=incremental" in out
+    assert "window: 2024-01-01T00:00:00+00:00 to 2025-01-01T00:00:00+00:00" in out

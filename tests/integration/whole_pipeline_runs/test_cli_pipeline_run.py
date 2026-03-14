@@ -230,3 +230,74 @@ def test_cli_run_pipeline_live_dummyjson_happy_path(
     assert debug["table_counts"]["fact_orders"] > 0
     assert debug["table_counts"]["fact_order_items"] > 0
     assert debug["table_counts"]["v_fact_orders_latest"] > 0
+
+
+@pytest.mark.heavy_integration
+@pytest.mark.non_ci
+@pytest.mark.live_http
+@pytest.mark.docker_required
+def test_cli_run_pipeline_incremental_dummyjson_happy_path(
+    reinit_schema,
+    dsn: str,
+    run_artifacts_dir,
+    monkeypatch,
+) -> None:
+    """
+    Run the full pipeline from CLI using incremental mode against live DummyJson.
+
+    This is still a windowed live pull backed by a synthetic `DummyJson` `order_ts`,
+    so the test only proves:
+    - the extraction window resolves,
+    - the run succeeds,
+    - the manifest/log/ledger carry the window metadata.
+    """
+    monkeypatch.setenv("WAREHOUSE_DSN", dsn)
+
+    rc = main(
+        [
+            "run",
+            "--mode",
+            "incremental",
+            "--page-size",
+            "100",
+            "--since",
+            "2024-01-01T00:00:00+00:00",
+            "--until",
+            "2025-01-01T00:00:00+00:00",
+            "--runs-root",
+            str(run_artifacts_dir),
+        ]
+    )
+
+    debug = _collect_pipeline_debug(dsn=dsn, run_artifacts_dir=run_artifacts_dir)
+
+    assert rc == 0, _failure_blob(rc=rc, debug=debug)
+
+    manifest = debug["manifest"]
+    assert manifest["status"] == "succeeded"
+    assert manifest["mode"] == "incremental"
+    assert manifest["snapshot_key"] is None
+    _assert_artifacts_exist(manifest)
+
+    extraction_window = manifest["extraction_window"]
+    assert extraction_window["mode"] == "incremental"
+    assert extraction_window["watermark_column"] == "order_ts"
+    assert extraction_window["low"] == "2024-01-01T00:00:00+00:00"
+    assert extraction_window["high"] == "2025-01-01T00:00:00+00:00"
+    assert extraction_window["carts_pre_filter"] > 0
+    assert extraction_window["carts_post_filter"] > 0
+    assert extraction_window["carts_post_filter"] <= extraction_window["carts_pre_filter"]
+
+    assert manifest["extract"]["mode"] == "incremental"
+    assert manifest["extract"]["counts"]["users"] > 0
+    assert manifest["extract"]["counts"]["products"] > 0
+    assert manifest["extract"]["counts"]["carts"] > 0
+
+    assert debug["table_counts"]["stg_customers"] > 0
+    assert debug["table_counts"]["stg_products"] > 0
+    assert debug["table_counts"]["stg_orders"] > 0
+    assert debug["table_counts"]["stg_order_items"] > 0
+    assert debug["table_counts"]["dq_results"] > 0
+    assert debug["table_counts"]["fact_orders"] > 0
+    assert debug["table_counts"]["fact_order_items"] > 0
+    assert debug["table_counts"]["v_fact_orders_latest"] > 0

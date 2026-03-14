@@ -26,14 +26,19 @@ def resolve_extraction_window(
     since: datetime | None = None,
     until: datetime | None = None,
     overlap: timedelta = timedelta(0),
+    default_high: datetime | None = None,
 ) -> ExtractionWindow:
     """
     Compute the used extraction window from inputs and prior state.
     """
-    high = until if until is not None else run_started_at
+    high = (
+        until
+        if until is not None
+        else (default_high if default_high is not None else run_started_at)
+    )
 
     if since is not None:
-        # `since` explicitly `overrides low if provided
+        # `since` explicitly overrides `low` if provided
         low = since
     elif prior_watermark is not None:
         low = prior_watermark - overlap

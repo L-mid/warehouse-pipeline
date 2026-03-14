@@ -31,7 +31,10 @@ from warehouse_pipeline.orchestration.extraction_window import (
 from warehouse_pipeline.orchestration.logging import RunLogger
 from warehouse_pipeline.orchestration.manifest import write_manifest
 from warehouse_pipeline.publish.views import PublishResult, apply_views
-from warehouse_pipeline.stage.derive_fields import derive_order_ts
+from warehouse_pipeline.stage.derive_fields import (
+    derive_order_ts,
+    synthetic_order_ts_window_high,
+)
 from warehouse_pipeline.stage.load import load_mapped_batches
 from warehouse_pipeline.stage.map_carts import map_carts
 from warehouse_pipeline.stage.map_products import map_products
@@ -62,6 +65,16 @@ def _run_artifacts_dir(spec: RunSpec, run_id: UUID) -> Path:
     return spec.runs_root.resolve() / str(run_id)
 
 
+def _default_incremental_high(spec: RunSpec) -> datetime | None:
+    """
+    Pick a sane fallback high watermark when the source does not expose a real
+    upstream timestamp cursor (DummyJson does not).
+    """
+    if spec.source_system == "dummyjson" and spec.watermark_column == "order_ts":
+        return synthetic_order_ts_window_high()
+    return None
+
+
 def _resolve_and_record_window(
     conn: Connection,
     *,
@@ -87,6 +100,7 @@ def _resolve_and_record_window(
         since=spec.since,
         until=spec.until,
         overlap=spec.overlap_window,
+        default_high=_default_incremental_high(spec),
     )
 
     record_extraction_window(
@@ -164,10 +178,12 @@ def _extract_bundle(
     return filtered_bundle, window_meta
 
 
-def _summarize_extract(bundle: ExtractBundle) -> dict[str, Any]:
+def _summarize_extract(
+    bundle: ExtractBundle, *, mode_override: str | None = None
+) -> dict[str, Any]:
     """Summarizes extraction results and return its `dict`."""
     return {
-        "mode": bundle.mode,
+        "mode": mode_override or bundle.mode,
         "snapshot_key": bundle.snapshot_key,
         "counts": {
             "users": len(bundle.users),
@@ -302,7 +318,7 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
             t0 = perf_counter()
             logger.phase_started("extract")
             bundle, window_meta = _extract_bundle(spec, window=window)
-            extract_summary = _summarize_extract(bundle)
+            extract_summary = _summarize_extract(bundle, mode_override=spec.mode)
             timings_s["extract"] = perf_counter() - t0
             logger.phase_finished(
                 "extract",

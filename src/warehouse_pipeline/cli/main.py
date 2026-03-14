@@ -41,6 +41,10 @@ def main(argv: list[str] | None = None) -> int:
 
     #### extract from `DummyJson` live and run the pipeline on that (requires internet).
     `pipeline run --mode live`
+
+    #### run an incremental run on live data
+    `pipeline run --mode incremental --since 2024-01-01T00:00:00+00:00 \
+    --until 2025-01-01T00:00:00+00:00 --page-size 100`
     """
 
     parser = build_parser()
