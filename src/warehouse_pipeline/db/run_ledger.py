@@ -123,6 +123,25 @@ def get_last_successful_watermark(
     return row[0] if row is not None else None
 
 
+def record_cursor_state(
+    conn: Connection,
+    *,
+    run_id: UUID,
+    cursor_state: Mapping[str, Any],
+) -> None:
+    """
+    Persist source-specific cursor metadata for this run in a json col.
+    """
+    conn.execute(
+        """
+        UPDATE run_ledger
+        SET cursor_state_json = %s
+        WHERE run_id = %s
+        """,
+        (Jsonb(dict(cursor_state)), run_id),
+    )
+
+
 def record_extraction_window(
     conn: Connection,
     *,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, LiteralString
 
@@ -18,6 +19,7 @@ from warehouse_pipeline.extract.models import (
     DummyProduct,
     DummyUser,
 )
+from warehouse_pipeline.extract.source_contract import PullResult
 
 
 def _read_json(path: Path) -> dict:
@@ -344,21 +346,67 @@ def test_cli_run_pipeline_incremental_default_overlap_reprocesses_recent_rows(
         discounted_total=12.0,
     )
 
-    bundles = [
-        _fake_live_bundle(carts=(old_order, recent_order_v1)),
-        _fake_live_bundle(carts=(old_order, recent_order_v2)),
-    ]
+    fixed_high = datetime(2024, 12, 31, 0, 0, 0, tzinfo=UTC)
     seen_page_sizes: list[int] = []
+    seen_windows = []
 
-    def fake_fetch_live_bundle(*, page_size: int = 100) -> ExtractBundle:
-        """Fake fetch mock bundle."""
-        seen_page_sizes.append(page_size)
-        assert bundles, "unexpected extra live fetch"
-        return bundles.pop(0)
+    class FakeDummyJsonSource:
+        source_system = "dummyjson"
 
-    monkeypatch.setattr(runner_mod, "fetch_live_bundle", fake_fetch_live_bundle)
+        def __init__(self) -> None:
+            self._incremental_results = [
+                PullResult(
+                    bundle=_fake_live_bundle(carts=(old_order, recent_order_v1)),
+                    meta={
+                        "source_system": "dummyjson",
+                        "native_incremental": False,
+                        "selection_strategy": "full_pull_plus_client_side_filter",
+                        "carts_pre_filter": 2,
+                        "carts_post_filter": 2,
+                    },
+                ),
+                PullResult(
+                    bundle=_fake_live_bundle(carts=(recent_order_v2,)),
+                    meta={
+                        "source_system": "dummyjson",
+                        "native_incremental": False,
+                        "selection_strategy": "full_pull_plus_client_side_filter",
+                        "carts_pre_filter": 2,
+                        "carts_post_filter": 1,
+                    },
+                ),
+            ]
 
-    # seeds the watermark explicitly
+        def validate_watermark_column(self, watermark_column: str) -> None:
+            assert watermark_column == "order_ts"
+
+        def default_high_watermark(
+            self,
+            *,
+            watermark_column: str,
+            run_started_at: datetime,
+        ) -> datetime | None:
+            assert watermark_column == "order_ts"
+            return fixed_high
+
+        def pull_full(self, *, page_size: int):
+            raise AssertionError("test should not call pull_full in incremental mode")
+
+        def pull_incremental(self, *, page_size: int, window):
+            seen_page_sizes.append(page_size)
+            seen_windows.append(window)
+            assert self._incremental_results, "unexpected extra incremental pull"
+            return self._incremental_results.pop(0)
+
+    fake_source = FakeDummyJsonSource()
+
+    monkeypatch.setattr(
+        runner_mod,
+        "get_source_adapter",
+        lambda source_system: fake_source,
+    )
+
+    # first run: seed watermark explicitly
     rc1 = main(
         [
             "run",
@@ -372,10 +420,9 @@ def test_cli_run_pipeline_incremental_default_overlap_reprocesses_recent_rows(
             str(run_artifacts_dir),
         ]
     )
-
     assert rc1 == 0
 
-    # second run should use prior_watermark, 7 days
+    # second run: prior watermark minus default 7-day overlap, high from adapter
     rc2 = main(
         [
             "run",
@@ -388,12 +435,27 @@ def test_cli_run_pipeline_incremental_default_overlap_reprocesses_recent_rows(
 
     debug = _collect_pipeline_debug(dsn=dsn, run_artifacts_dir=run_artifacts_dir)
     assert rc2 == 0, _failure_blob(rc=rc2, debug=debug)
+
     assert seen_page_sizes == [100, 100]
+    assert len(seen_windows) == 2
+
+    first_window = seen_windows[0]
+    assert first_window.watermark_column == "order_ts"
+    assert first_window.prior_watermark is None
+    assert first_window.low == datetime(2024, 1, 1, 0, 0, 0, tzinfo=UTC)
+    assert first_window.high == datetime(2024, 12, 20, 0, 0, 0, tzinfo=UTC)
+
+    second_window = seen_windows[1]
+    assert second_window.watermark_column == "order_ts"
+    assert second_window.prior_watermark == datetime(2024, 12, 20, 0, 0, 0, tzinfo=UTC)
+    assert second_window.low == datetime(2024, 12, 13, 0, 0, 0, tzinfo=UTC)
+    assert second_window.high == fixed_high
 
     manifest = debug["manifest"]
     assert manifest["status"] == "succeeded"
     assert manifest["mode"] == "incremental"
 
+    # orchestration-owned metadata only
     ew = manifest["extraction_window"]
     assert ew["mode"] == "incremental"
     assert ew["watermark_column"] == "order_ts"
@@ -401,8 +463,14 @@ def test_cli_run_pipeline_incremental_default_overlap_reprocesses_recent_rows(
     assert ew["low"] == "2024-12-13T00:00:00+00:00"
     assert ew["high"] == "2024-12-31T00:00:00+00:00"
     assert ew["overlap_applied_s"] == 7 * 24 * 60 * 60
-    assert ew["carts_pre_filter"] == 2
-    assert ew["carts_post_filter"] == 1
+
+    # source-owned metadata lives under extract.source
+    source = manifest["extract"]["source"]
+    assert source["source_system"] == "dummyjson"
+    assert source["native_incremental"] is False
+    assert source["selection_strategy"] == "full_pull_plus_client_side_filter"
+    assert source["carts_pre_filter"] == 2
+    assert source["carts_post_filter"] == 1
 
     assert debug["table_counts"]["run_ledger"] == 2
     assert debug["table_counts"]["fact_orders"] == 2
@@ -561,7 +629,6 @@ def test_cli_run_pipeline_incremental_dummyjson_happy_path(
     )
 
     debug = _collect_pipeline_debug(dsn=dsn, run_artifacts_dir=run_artifacts_dir)
-
     assert rc == 0, _failure_blob(rc=rc, debug=debug)
 
     manifest = debug["manifest"]
@@ -575,9 +642,17 @@ def test_cli_run_pipeline_incremental_dummyjson_happy_path(
     assert extraction_window["watermark_column"] == "order_ts"
     assert extraction_window["low"] == "2024-01-01T00:00:00+00:00"
     assert extraction_window["high"] == "2025-01-01T00:00:00+00:00"
-    assert extraction_window["carts_pre_filter"] > 0
-    assert extraction_window["carts_post_filter"] > 0
-    assert extraction_window["carts_post_filter"] <= extraction_window["carts_pre_filter"]
+
+    source = manifest["extract"]["source"]
+    assert source["source_system"] == "dummyjson"
+    assert source["native_incremental"] is False
+    assert source["selection_strategy"] == "full_pull_plus_client_side_filter"
+    assert source["watermark_column"] == "order_ts"
+    assert source["low"] == "2024-01-01T00:00:00+00:00"
+    assert source["high"] == "2025-01-01T00:00:00+00:00"
+    assert source["carts_pre_filter"] > 0
+    assert source["carts_post_filter"] > 0
+    assert source["carts_post_filter"] <= source["carts_pre_filter"]
 
     assert manifest["extract"]["mode"] == "incremental"
     assert manifest["extract"]["counts"]["users"] > 0
