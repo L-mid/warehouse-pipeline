@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
@@ -9,7 +10,7 @@ from psycopg import Connection
 from psycopg.types.json import Jsonb
 
 RunStatus = Literal["running", "succeeded", "failed"]  # injected in
-RunMode = Literal["snapshot", "live"]
+RunMode = Literal["snapshot", "live", "incremental"]
 
 
 @dataclass(frozen=True)
@@ -90,6 +91,78 @@ def set_run_status(
             """,
             (status, error_message, run_id),
         )
+
+
+def get_last_successful_watermark(
+    conn: Connection,
+    *,
+    source_system: str,
+    watermark_column: str,
+) -> datetime | None:
+    """
+    Return the `watermark_high` from the most recent succeeded
+    incremental run for a `source_syste` and `watermark_column`.
+
+    Returns `None` if no prior incremental run has succeeded.
+    """
+    row = conn.execute(
+        """
+        SELECT watermark_high
+        FROM run_ledger
+        WHERE status = 'succeeded'
+            AND mode = 'incremental'
+            AND source_system = %s
+            AND watermark_column = %s
+            AND watermark_high IS NOT NULL
+        ORDER BY finished_at DESC
+        LIMIT 1
+        """,
+        (source_system, watermark_column),
+    ).fetchone()
+
+    return row[0] if row is not None else None
+
+
+def record_cursor_state(
+    conn: Connection,
+    *,
+    run_id: UUID,
+    cursor_state: Mapping[str, Any],
+) -> None:
+    """
+    Persist source-specific cursor metadata for this run in a json col.
+    """
+    conn.execute(
+        """
+        UPDATE run_ledger
+        SET cursor_state_json = %s
+        WHERE run_id = %s
+        """,
+        (Jsonb(dict(cursor_state)), run_id),
+    )
+
+
+def record_extraction_window(
+    conn: Connection,
+    *,
+    run_id: UUID,
+    watermark_column: str,
+    watermark_low: datetime,
+    watermark_high: datetime,
+) -> None:
+    """
+    Add the resolved extraction window onto this run's ledger row.
+    """
+    conn.execute(
+        """
+        UPDATE run_ledger
+        SET watermark_column = %s,
+            watermark_low    = %s,
+            watermark_high   = %s
+        WHERE run_id = %s
+        """,
+        (watermark_column, watermark_low, watermark_high, run_id),
+    )
 
 
 # api

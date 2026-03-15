@@ -52,7 +52,7 @@ def _get_run_mode(conn: Connection, *, run_id: UUID) -> RunMode:
         raise ValueError(f"run_id not found in run_ledger: {run_id}")
 
     mode = row[0]
-    if mode not in ("snapshot", "live"):
+    if mode not in ("snapshot", "live", "incremental"):
         raise ValueError(f"unsupported run mode for run_id={run_id}: {mode!r}")
     return mode
 

@@ -1,5 +1,5 @@
 -- Business outputs as SQL views.
--- each view reports the latest succeeded run for its sourced staging table.
+-- each view reports its sourced staging table.
 
 
 
@@ -15,32 +15,25 @@ WHERE source_run_id = (
   LIMIT 1
 );
 
-
-
 -- row per order
+CREATE OR REPLACE VIEW v_fact_orders_current AS
+SELECT *
+FROM fact_orders;
+
+-- row per order item
+CREATE OR REPLACE VIEW v_fact_order_items_current AS
+SELECT *
+FROM fact_order_items;
+
+
+-- Compatibility aliases for the existing metrics/tests.(REMOVE THESE LATER)
 CREATE OR REPLACE VIEW v_fact_orders_latest AS
 SELECT *
-FROM fact_orders
-WHERE source_run_id = (
-  SELECT run_id
-  FROM run_ledger
-  WHERE status = 'succeeded'
-  ORDER BY finished_at DESC NULLS LAST, started_at DESC
-  LIMIT 1
-);
+FROM v_fact_orders_current;
 
-
--- row per item(s)
 CREATE OR REPLACE VIEW v_fact_order_items_latest AS
 SELECT *
-FROM fact_order_items
-WHERE source_run_id = (
-  SELECT run_id
-  FROM run_ledger
-  WHERE status = 'succeeded'
-  ORDER BY finished_at DESC NULLS LAST, started_at DESC
-  LIMIT 1
-);
+FROM v_fact_order_items_current;
 
 
 

@@ -8,6 +8,7 @@ from typing import Any
 _Q2 = Decimal("0.01")
 _Q4 = Decimal("0.0001")
 _BASE_ORDER_TS = datetime(2024, 1, 1, tzinfo=UTC)
+_SYNTHETIC_ORDER_TS_HIGH = _BASE_ORDER_TS + timedelta(days=365)
 
 
 def normalize_text(value: str | None) -> str | None:
@@ -166,3 +167,10 @@ def derive_product_discount_fraction(value: float | None) -> Decimal | None:
     if dec is None:
         return None
     return quantize_pct(dec / Decimal("100"))
+
+
+def synthetic_order_ts_window_high() -> datetime:
+    """
+    Upper bound for the deterministic DummyJson `order_ts` domain.
+    """
+    return _SYNTHETIC_ORDER_TS_HIGH

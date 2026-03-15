@@ -1,7 +1,11 @@
 # Changelog
 
 ## Unreleased
+
+## v0.4.0 - 2026-03-15
 ### Added
+- 7-day run backfill implementation on `DummyJson` with a another integration test in `test_cli_pipeline_run` to ensure incremental defaults are as expected on two runs and run from CLI.
+- Stub incremental data pulling mode with watermarked windows, derived on `order_ts` for now. Integration and unit tested. Will replace entirely once changing to real data with real time data.
 - New live mode test that broadly tests results from live http requests off dummy json.
 - CI marker `non_ci` to avoid CI testing certain tests (such as the live http one).
 
