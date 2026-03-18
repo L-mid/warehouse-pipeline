@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 
-from warehouse_pipeline.extract.bundles import ExtractBundle
+from warehouse_pipeline.extract.contracts import RawExtract
 from warehouse_pipeline.extract.source_contract import PullResult
 from warehouse_pipeline.orchestration.extraction_window import ExtractionWindow
 
@@ -31,6 +31,8 @@ class SquareOrdersSource:
         token = os.environ["SQUARE_ACCESS_TOKEN"]
         raw_locations = os.environ["SQUARE_LOCATION_IDS"]
         location_ids = tuple(x.strip() for x in raw_locations.split(",") if x.strip())
+        if not location_ids:
+            raise ValueError("SQUARE_LOCATION_IDS must contain at least one location id")
         return cls(
             access_token=token,
             location_ids=location_ids,
@@ -41,7 +43,7 @@ class SquareOrdersSource:
         Watermark column must be one of, `created_at`, `updated_at`, `closed_at`,
         as they are the time attributes from Square.
         """
-        allowed = {"created_at", "updated_at", "closed_at"}
+        allowed = {"updated_at"}  # updated_at as time
         if watermark_column not in allowed:
             raise ValueError(f"Square Orders `watermark_column` must be one of {sorted(allowed)}")
 
@@ -53,15 +55,42 @@ class SquareOrdersSource:
     ) -> datetime | None:
         """"""
         self.validate_watermark_column(watermark_column)
-        # for this real API source, high is simply when the run started
         return run_started_at
 
     def pull_full(self, *, page_size: int) -> PullResult:
-        # A full pull can still be implemented as an unfiltered SearchOrders,
-        # but for now forcing incremental-only behavior to keep the contract clean.
-        # will rethink the 'modes' entirely later
-        raise NotImplementedError(
-            "SquareOrdersSource is intended to be used through incremental SearchOrders."
+        orders, pages = self._search_orders(
+            body={
+                "location_ids": list(self.location_ids),
+                "limit": min(page_size, 1000),
+                "return_entries": False,
+                "query": {
+                    "sort": {
+                        "sort_field": "UPDATED_AT",
+                        "sort_order": "ASC",
+                    }
+                },
+            }
+        )
+
+        extract = RawExtract(
+            source_system=self.source_system,
+            mode="live",
+            entities={"orders": tuple(orders)},
+            totals={"orders": len(orders)},
+            pages_fetched={"orders": pages},
+            page_size=page_size,
+        )
+
+        return PullResult(
+            extract=extract,
+            meta={
+                "source_system": self.source_system,
+                "strategy": "square_search_orders_full",
+                "orders_pulled": len(orders),
+                "pages_fetched": pages,
+                "sort_field": "UPDATED_AT",
+                "sort_order": "ASC",
+            },
         )
 
     def pull_incremental(
@@ -72,68 +101,59 @@ class SquareOrdersSource:
     ) -> PullResult:
         self.validate_watermark_column(window.watermark_column)
 
-        orders = self._search_orders_window(
-            watermark_column=window.watermark_column,
-            low=window.low,
-            high=window.high,
-            page_size=page_size,
+        orders, pages = self._search_orders(
+            body={
+                "location_ids": list(self.location_ids),
+                "limit": min(page_size, 1000),
+                "return_entries": False,
+                "query": {
+                    "filter": {
+                        "date_time_filter": {
+                            "updated_at": {
+                                "start_at": window.low.isoformat(),
+                                "end_at": window.high.isoformat(),
+                            }
+                        }
+                    },
+                    "sort": {
+                        "sort_field": "UPDATED_AT",
+                        "sort_order": "ASC",
+                    },
+                },
+            }
         )
-        # For now, because the current stage contract still expects DummyJson style
-        # users/products/carts, do NOT try to force-map Square into that shape here.
-        # Returns an empty placeholder bundle until stage/transform are redesigned.
-        #
-        # If want a temporary bridge, this adapter can emit a raw artifact directory
-        # or a Square specific extract object
-        # instead of ExtractBundle but probably will just ingore.
-        # until later
 
-        bundle = ExtractBundle(
-            mode="live",
-            users=(),
-            products=(),
-            carts=(),
+        extract = RawExtract(
+            source_system=self.source_system,
+            mode="incremental",
+            entities={"orders": tuple(orders)},
             totals={"orders": len(orders)},
-            pages_fetched={},
+            pages_fetched={"orders": pages},
             page_size=page_size,
-            source_paths={},
         )
 
         return PullResult(
-            bundle=bundle,
+            extract=extract,
             meta={
                 "source_system": self.source_system,
+                "strategy": "square_search_orders_incremental",
                 "native_incremental": True,
-                "selection_strategy": "server_side_search_orders",
                 "watermark_column": window.watermark_column,
                 "low": window.low.isoformat(),
                 "high": window.high.isoformat(),
                 "low_boundary": "inclusive",
                 "high_boundary": "inclusive",
-                "sort_field": self._square_sort_field(window.watermark_column),
-                "sort_order": "ASC",
                 "orders_pulled": len(orders),
+                "pages_fetched": pages,
+                "sort_field": "UPDATED_AT",
+                "sort_order": "ASC",
             },
         )
 
-    def _search_orders_window(
-        self,
-        *,
-        watermark_column: str,
-        low: datetime,
-        high: datetime,
-        page_size: int,
-    ) -> list[dict[str, Any]]:
-        """Search orders window, ."""
-
-        out: list[dict[str, Any]] = []
+    def _search_orders(self, *, body: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
+        orders: list[dict[str, Any]] = []
         cursor: str | None = None
-
-        body = self._base_search_body(
-            watermark_column=watermark_column,
-            low=low,
-            high=high,
-            page_size=page_size,
-        )
+        pages = 0
 
         with httpx.Client(
             base_url=self.base_url.rstrip("/"),
@@ -143,7 +163,7 @@ class SquareOrdersSource:
                 "Square-Version": self.square_version,
                 "Content-Type": "application/json",
                 "Accept": "application/json",
-                "User-Agent": "warehouse-pipeline/0.4.0",
+                "User-Agent": "warehouse-pipeline/0.5.0",
             },
         ) as client:
             while True:
@@ -155,48 +175,18 @@ class SquareOrdersSource:
                 resp.raise_for_status()
 
                 payload = resp.json()
-                out.extend(payload.get("orders", []))
+                batch = payload.get("orders", [])
+                if not isinstance(batch, list):
+                    raise ValueError("Square SearchOrders returned non-list 'orders' payload")
 
+                for order in batch:
+                    if not isinstance(order, dict):
+                        raise ValueError("Square SearchOrders returned a non-object order payload")
+                    orders.append(order)
+
+                pages += 1
                 cursor = payload.get("cursor")
-                # cursor until curser is gone
                 if not cursor:
                     break
 
-        return out
-
-    def _base_search_body(
-        self,
-        *,
-        watermark_column: str,
-        low: datetime,
-        high: datetime,
-        page_size: int,
-    ) -> dict[str, Any]:
-        """Return data for ex."""
-
-        return {
-            "location_ids": list(self.location_ids),
-            "limit": min(page_size, 1000),
-            "return_entries": False,
-            "query": {
-                "filter": {
-                    "date_time_filter": {
-                        watermark_column: {
-                            "start_at": low.isoformat(),
-                            "end_at": high.isoformat(),
-                        }
-                    }
-                },
-                "sort": {
-                    "sort_field": self._square_sort_field(watermark_column),
-                    "sort_order": "ASC",
-                },
-            },
-        }
-
-    def _square_sort_field(self, watermark_column: str) -> str:
-        return {
-            "created_at": "CREATED_AT",
-            "updated_at": "UPDATED_AT",
-            "closed_at": "CLOSED_AT",
-        }[watermark_column]
+        return orders, pages

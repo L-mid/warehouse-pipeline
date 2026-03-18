@@ -15,9 +15,7 @@ from warehouse_pipeline.db.work_tables import (
 )
 from warehouse_pipeline.db.writers.rejects import RejectInsert, insert_reject_rows
 from warehouse_pipeline.stage import (
-    MappedCarts,
-    MappedProducts,
-    MappedUsers,
+    MappedSquareOrders,
     StageReject,
     StageRow,
     StageTableLoadResult,
@@ -25,10 +23,9 @@ from warehouse_pipeline.stage import (
 
 # specified order in which to load tables.
 _TABLE_LOAD_ORDER = (
-    "stg_customers",
-    "stg_products",
-    "stg_orders",
-    "stg_order_items",
+    "stg_square_orders",
+    "stg_square_order_lines",
+    "stg_square_tenders",
 )
 
 
@@ -67,9 +64,6 @@ def load_stage_rows(
 ) -> dict[str, StageTableLoadResult]:
     """
     Load mapped stage rows into Postgres work tables and flush into `stg_*`.
-
-    This function does not commit, transaction scope stays with the
-    orchestration layer.
     """
     rows_by_table: dict[str, list[StageRow]] = defaultdict(list)
     reject_list = list(rejects)
@@ -113,24 +107,15 @@ def load_stage_rows(
     return results
 
 
-def load_mapped_batches(
+def load_square_batches(
     conn: Connection,
     *,
     run_id: UUID,
-    users: MappedUsers,
-    products: MappedProducts,
-    carts: MappedCarts,
+    square: MappedSquareOrders,
 ) -> dict[str, StageTableLoadResult]:
-    """Convenience wrapper for loading the `DummyJSON` stage batches and `reject_rows`."""
     all_rows: list[StageRow] = [
-        *users.rows,
-        *products.rows,
-        *carts.order_rows,
-        *carts.order_item_rows,
+        *square.order_rows,
+        *square.order_line_rows,
+        *square.tender_rows,
     ]
-    all_rejects: list[StageReject] = [
-        *users.rejects,
-        *products.rejects,
-        *carts.rejects,
-    ]
-    return load_stage_rows(conn, run_id=run_id, rows=all_rows, rejects=all_rejects)
+    return load_stage_rows(conn, run_id=run_id, rows=all_rows, rejects=square.rejects)

@@ -21,8 +21,8 @@ from warehouse_pipeline.db.run_ledger import (
 )
 from warehouse_pipeline.dq.gates import GateDecision, evaluate_stage_gates
 from warehouse_pipeline.dq.runner import DQRunSummary, run_stage_dq
-from warehouse_pipeline.extract import read_snapshot_bundle
-from warehouse_pipeline.extract.bundles import ExtractBundle
+from warehouse_pipeline.extract import read_snapshot_extract
+from warehouse_pipeline.extract.contracts import RawExtract
 from warehouse_pipeline.extract.source_registry import get_source_adapter
 from warehouse_pipeline.orchestration.contract import RunManifest, RunSpec
 from warehouse_pipeline.orchestration.extraction_window import (
@@ -32,10 +32,8 @@ from warehouse_pipeline.orchestration.extraction_window import (
 from warehouse_pipeline.orchestration.logging import RunLogger
 from warehouse_pipeline.orchestration.manifest import write_manifest
 from warehouse_pipeline.publish.views import PublishResult, apply_views
-from warehouse_pipeline.stage.load import load_mapped_batches
-from warehouse_pipeline.stage.map_carts import map_carts
-from warehouse_pipeline.stage.map_products import map_products
-from warehouse_pipeline.stage.map_users import map_users
+from warehouse_pipeline.stage.load import load_square_batches
+from warehouse_pipeline.stage.map_square_orders import map_square_orders
 from warehouse_pipeline.transform.warehouse_build import WarehouseBuildResult, build_warehouse
 
 
@@ -157,50 +155,44 @@ def _resolve_and_record_window(
     return window
 
 
-def _extract_bundle(
+def _extract_raw(
     spec: RunSpec,
     *,
     window: ExtractionWindow | None = None,
-) -> tuple[ExtractBundle, dict[str, Any]]:
-    """Extractions of any mode's expectaions."""
+) -> tuple[RawExtract, dict[str, Any]]:
     adapter = get_source_adapter(spec.source_system)
 
-    # snapshot path
     if spec.mode == "snapshot":
-        snapshot_root = spec.resolved_snapshot_root()
-        bundle = read_snapshot_bundle(
-            snapshot_root=snapshot_root,
+        extract = read_snapshot_extract(
+            snapshot_root=spec.resolved_snapshot_root(),
             snapshot_key=spec.snapshot_key,
         )
-        return bundle, {}
+        return extract, {}
 
-    # live mode path
     if spec.mode == "live":
         result = adapter.pull_full(page_size=spec.page_size)
-        return result.bundle, result.meta
+        return result.extract, result.meta
 
-    # incremental client side filter
     assert window is not None, "incremental mode requires a resolved window"
     result = adapter.pull_incremental(page_size=spec.page_size, window=window)
-    return result.bundle, result.meta
+    return result.extract, result.meta
 
 
 def _summarize_extract(
-    bundle: ExtractBundle, *, mode_override: str | None = None
+    extract: RawExtract,
+    *,
+    mode_override: str | None = None,
 ) -> dict[str, Any]:
     """Summarizes extraction results and return its `dict`."""
+
     return {
-        "mode": mode_override or bundle.mode,
-        "snapshot_key": bundle.snapshot_key,
-        "counts": {
-            "users": len(bundle.users),
-            "products": len(bundle.products),
-            "carts": len(bundle.carts),
-        },
-        "totals": dict(bundle.totals),
-        "pages_fetched": dict(bundle.pages_fetched),
-        "page_size": bundle.page_size,
-        "source_paths": dict(bundle.source_paths),
+        "mode": mode_override or extract.mode,
+        "snapshot_key": extract.snapshot_key,
+        "counts": {name: len(rows) for name, rows in extract.entities.items()},
+        "totals": dict(extract.totals),
+        "pages_fetched": dict(extract.pages_fetched),
+        "page_size": extract.page_size,
+        "source_paths": dict(extract.source_paths),
     }
 
 
@@ -344,8 +336,8 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
             ## -- extraction
             t0 = perf_counter()
             logger.phase_started("extract")
-            bundle, source_meta = _extract_bundle(spec, window=window)
-            extract_summary = _summarize_extract(bundle, mode_override=spec.mode)
+            raw_extract, source_meta = _extract_raw(spec, window=window)
+            extract_summary = _summarize_extract(raw_extract, mode_override=spec.mode)
             if source_meta:
                 extract_summary["source"] = source_meta
             timings_s["extract"] = perf_counter() - t0
@@ -358,90 +350,88 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
             ## -- map obtained to staging
             t0 = perf_counter()
             logger.phase_started("stage_map")
-            mapped_users = map_users(bundle.users)
-            mapped_products = map_products(bundle.products)
-            mapped_carts = map_carts(
-                bundle.carts,
-                product_lookup=mapped_products.product_lookup,
-                user_lookup=mapped_users.user_lookup,
-            )
+            mapped_square = map_square_orders(raw_extract.entities.get("orders", ()))
             timings_s["stage_map"] = perf_counter() - t0
             logger.phase_finished(
                 "stage_map",
                 duration_s=timings_s["stage_map"],
-                customer_rows=len(mapped_users.rows),
-                product_rows=len(mapped_products.rows),
-                order_rows=len(mapped_carts.order_rows),
-                order_item_rows=len(mapped_carts.order_item_rows),
+                order_rows=len(mapped_square.order_rows),
+                order_line_rows=len(mapped_square.order_line_rows),
+                tender_rows=len(mapped_square.tender_rows),
+                rejects=len(mapped_square.rejects),
             )
 
-            ## -- staging
+            ## -- stage load
             t0 = perf_counter()
             logger.phase_started("stage_load")
-            stage_results = load_mapped_batches(
+            stage_results = load_square_batches(
                 conn,
                 run_id=run_id,
-                users=mapped_users,
-                products=mapped_products,
-                carts=mapped_carts,
+                square=mapped_square,
             )
-            conn.commit()  # commit staged tables.
+            conn.commit()
             stage_summary = _summarize_stage(stage_results)
             timings_s["stage_load"] = perf_counter() - t0
             logger.phase_finished(
-                "stage_load", duration_s=timings_s["stage_load"], tables=list(stage_summary)
+                "stage_load",
+                duration_s=timings_s["stage_load"],
+                tables=list(stage_summary),
             )
 
             ## -- dq
-            t0 = perf_counter()
-            logger.phase_started("dq")
-            dq_results = run_stage_dq(conn, run_id=run_id)
-            conn.commit()  # commit dq table checks in
-            dq_summary = _summarize_dq(dq_results)
-            timings_s["dq"] = perf_counter() - t0
-            logger.phase_finished(
-                "dq",
-                duration_s=timings_s["dq"],
-                tables=list(dq_summary),
-            )
+            if spec.run_dq:
+                t0 = perf_counter()
+                logger.phase_started("dq")
+                dq_results = run_stage_dq(conn, run_id=run_id)
+                conn.commit()
+                dq_summary = _summarize_dq(dq_results)
+                timings_s["dq"] = perf_counter() - t0
+                logger.phase_finished(
+                    "dq",
+                    duration_s=timings_s["dq"],
+                    tables=list(dq_summary),
+                )
 
-            ## -- gate
-            t0 = perf_counter()
-            logger.phase_started("gate")
-            gate_decision = evaluate_stage_gates(conn, run_id=run_id)
-            gate_summary = _summarize_gate(gate_decision)
-            timings_s["gate"] = perf_counter() - t0
-            logger.phase_finished(
-                "gate",
-                duration_s=timings_s["gate"],
-                passed=gate_decision.passed,
-                failures=len(gate_decision.failures),
-                warnings=len(gate_decision.warnings),
-            )
-            if not gate_decision.passed:
-                raise PipelineGateFailed(gate_decision)  # will error if metrics not within tol
-            # no commit
+                t0 = perf_counter()
+                logger.phase_started("gate")
+                gate_decision = evaluate_stage_gates(conn, run_id=run_id)
+                gate_summary = _summarize_gate(gate_decision)
+                timings_s["gate"] = perf_counter() - t0
+                logger.phase_finished(
+                    "gate",
+                    duration_s=timings_s["gate"],
+                    passed=gate_decision.passed,
+                    failures=len(gate_decision.failures),
+                    warnings=len(gate_decision.warnings),
+                )
+                if not gate_decision.passed:
+                    raise PipelineGateFailed(gate_decision)
+            else:
+                logger.event("dq_skipped")
 
             ## -- transform, publish results.
-            t0 = perf_counter()
-            logger.phase_started("transform_publish")
-            transform_result = build_warehouse(
-                conn,
-                run_id=run_id,
-                step_name=spec.transform_step,
-            )
-            publish_result = apply_views(conn) if spec.publish_views else None
-            conn.commit()  # commit transforms and anything published together
+            if spec.run_transforms:
+                t0 = perf_counter()
+                logger.phase_started("transform_publish")
+                transform_result = build_warehouse(
+                    conn,
+                    run_id=run_id,
+                    step_name=spec.transform_step,
+                )
+                publish_result = apply_views(conn) if spec.publish_views else None
+                conn.commit()
 
-            transform_summary = _summarize_transform(transform_result)
-            publish_summary = _summarize_publish(publish_result)
-            timings_s["transform_publish"] = perf_counter() - t0
-            logger.phase_finished(
-                "transform_publish",
-                duration_s=timings_s["transform_publish"],
-                transform_files=transform_summary.get("files_ran", []),
-                publish_files=publish_summary.get("files_ran", []),
-            )
+                transform_summary = _summarize_transform(transform_result)
+                publish_summary = _summarize_publish(publish_result)
+                timings_s["transform_publish"] = perf_counter() - t0
+                logger.phase_finished(
+                    "transform_publish",
+                    duration_s=timings_s["transform_publish"],
+                    transform_files=transform_summary.get("files_ran", []),
+                    publish_files=publish_summary.get("files_ran", []),
+                )
+            else:
+                logger.event("transform_publish_skipped")
 
             ## -- succeed the run.
 

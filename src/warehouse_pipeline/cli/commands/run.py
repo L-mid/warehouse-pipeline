@@ -25,8 +25,8 @@ def register_run_commands(subparsers: argparse._SubParsersAction) -> None:
     run.add_argument(
         "--snapshot",
         dest="snapshot_key",
-        default="v1",
-        help="Snapshot key under data/snapshots/dummyjson/ (snapshot mode only).",
+        default="sandbox_v1",
+        help="Snapshot key under data/snapshots/square_orders/ (snapshot mode only).",
     )
     run.add_argument(
         "--runs-root",
@@ -37,35 +37,44 @@ def register_run_commands(subparsers: argparse._SubParsersAction) -> None:
         "--page-size",
         type=int,
         default=100,
-        help="HTTP page size for live mode.",
+        help="HTTP page size for Square SearchOrders.",
     )
 
     ## -- incremental options only
     run.add_argument(
         "--watermark-column",
-        default="order_ts",
-        help="Column to use as the incremental cursor.",
+        default="updated_at",
+        help="Incremental cursor column. Currently uses updated_at.",
     )
     run.add_argument(
         "--since",
         type=datetime.fromisoformat,
         default=None,
-        help="Explicit low watermark (ISO timestamp). Overrides run_ledger lookup.",
+        help="Explicit low watermark (ISO timestamp).",
     )
     run.add_argument(
         "--until",
         type=datetime.fromisoformat,
         default=None,
-        help="Explicit high watermark (ISO timestamp). Defaults to the source-specific high.",
+        help="Explicit high watermark (ISO timestamp).",
     )
     run.add_argument(
         "--overlap",
         type=_parse_overlap,
         default=DEFAULT_INCREMENTAL_OVERLAP_WINDOW,
-        help=(
-            "Trailing overlap window subtracted from the prior watermark. "
-            "Examples: '7d', '1h', '30m', '2d6h30m'. Default: 7d."
-        ),
+        help="Examples: '7d', '1h', '30m', '2d6h30m'. Default: 7d.",
+    )
+
+    # temporarliy skip
+    run.add_argument(
+        "--with-dq",
+        action="store_true",
+        help="Run DQ + gate checks. Left off for refactor",
+    )
+    run.add_argument(
+        "--with-warehouse",
+        action="store_true",
+        help="Run warehouse build + publish. Left off for refactor.",
     )
 
     run.set_defaults(handler=handle_run)
@@ -93,6 +102,7 @@ def handle_run(args: argparse.Namespace) -> int:
     ## -- init `RunSpec`` to hand to pipeline
     spec = RunSpec(
         mode=args.mode,
+        source_system="square_orders",
         snapshot_key=args.snapshot_key if args.mode == "snapshot" else None,
         runs_root=Path(args.runs_root),
         page_size=args.page_size,
@@ -100,7 +110,11 @@ def handle_run(args: argparse.Namespace) -> int:
         since=args.since,
         until=args.until,
         overlap_window=args.overlap,
+        run_dq=args.with_dq,
+        run_transforms=args.with_warehouse,
+        publish_views=args.with_warehouse,
     )
+
     # pipeline.
     manifest = run_pipeline(spec)
 
@@ -117,11 +131,7 @@ def handle_run(args: argparse.Namespace) -> int:
     # special prints for extraction window
     if manifest.extraction_window:
         ew = manifest.extraction_window
-        print(
-            f"  window: {ew.get('low', 'n/a')} to {ew.get('high', 'n/a')} "
-            f"({ew.get('carts_post_filter', '?')}/{ew.get('carts_pre_filter', '?')} carts)"
-            # ? on unknown
-        )
+        print(f"  window: {ew.get('low', 'n/a')} to {ew.get('high', 'n/a')}")
 
     # manifest's `"succeeded"` field chosen to determine success for CLI.
     return 0 if manifest.status == "succeeded" else 1

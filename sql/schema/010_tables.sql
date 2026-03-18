@@ -8,9 +8,9 @@
 -- Run_ledger (Has 1 row per run)
 CREATE TABLE IF NOT EXISTS run_ledger (
     run_id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    source_system   text NOT NULL DEFAULT 'dummyjson',
+    source_system   text NOT NULL DEFAULT 'square_orders',
     mode            text NOT NULL CHECK (mode IN ('snapshot', 'live')),
-    snapshot_key    text,                           -- `dummyjson/<v>` or file path, optional
+    snapshot_key    text,
     started_at      timestamptz NOT NULL DEFAULT now(),
     finished_at     timestamptz,
     status          text NOT NULL CHECK (status IN ('running', 'succeeded', 'failed')),
@@ -20,79 +20,68 @@ CREATE TABLE IF NOT EXISTS run_ledger (
 );
 
 
--- stg_customers        (from users.json)
--- grain is one row per (run_id, customer_id).
-CREATE TABLE IF NOT EXISTS stg_customers (
-    run_id              uuid NOT NULL REFERENCES run_ledger(run_id) ON DELETE CASCADE,
-    customer_id         bigint NOT NULL,
-    first_name          text,
-    last_name           text,
-    full_name           text,           -- derived in staging. first_name || ' ' || last_name.
-    email               text,
-    phone               text,
-    city                text,
-    country             text,
-    company             text,
-    created_at          timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (run_id, customer_id)
-);
-
-
-
--- stg_products         (from products.json).
--- grain is one row per (run_id, product_id).
-CREATE TABLE IF NOT EXISTS stg_products (
-    run_id          uuid NOT NULL REFERENCES run_ledger(run_id) ON DELETE CASCADE,
-    product_id      bigint NOT NULL,
-    sku             text,           -- an optional derived stable sku for later metrics
-    title           text,
-    brand           text,
-    category        text,
-    price_usd       numeric(12,2),
-    discount_pct    numeric(8,4),
-    rating          numeric(6,3),
-    stock           integer,
-    created_at      timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (run_id, product_id)
-);
-
-
-
--- stg_orders           (from carts.json)
--- grain is one row per (run_id, order_id)
--- and [order_id == cart id]
-CREATE TABLE IF NOT EXISTS stg_orders (
-    run_id          uuid NOT NULL REFERENCES run_ledger(run_id) ON DELETE CASCADE,
-    order_id        bigint NOT NULL,
-    customer_id     bigint NOT NULL,
-    order_ts        timestamptz,        -- derived (deterministic) or nullable for this spec
-    country         text,
-    status          text,               -- derived from pipeline, in (paid/refunded/pending/canceled)
-    total_usd       numeric(12,2),
-    total_products  integer,
-    total_quantity  integer,
-    created_at      timestamptz NOT NULL DEFAULT now(),
+-- stg_square_orders
+-- grain is one row per (run_id, order_id).
+CREATE TABLE IF NOT EXISTS stg_square_orders (
+    run_id                  uuid NOT NULL REFERENCES run_ledger(run_id) ON DELETE CASCADE,
+    order_id                text NOT NULL,
+    location_id             text,
+    customer_id             text,
+    state                   text,
+    created_at_source       timestamptz,
+    updated_at_source       timestamptz,
+    closed_at_source        timestamptz,
+    currency_code           text,
+    total_money             numeric(12,2),
+    net_total_money         numeric(12,2),
+    total_discount_money    numeric(12,2),
+    total_tax_money         numeric(12,2),
+    total_tip_money         numeric(12,2),
+    created_at              timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (run_id, order_id)
 );
 
 
 
--- stg_order_items      (from carts.json products[])
--- grain is one row per (run_id, order_id, line_id)
-CREATE TABLE IF NOT EXISTS stg_order_items (
-    run_id          uuid NOT NULL REFERENCES run_ledger(run_id) ON DELETE CASCADE,
-    order_id        bigint NOT NULL,
-    line_id         integer NOT NULL,                   -- 1..N within the order
-    product_id      bigint,
-    sku             text,
-    qty             integer,
-    unit_price_usd  numeric(12,2),
-    discount_pct    numeric(8,4) DEFAULT 0,            -- Default is 0 (not null).
-    gross_usd       numeric(12,2),                      -- `qty` * `unit_price`
-    created_at      timestamptz NOT NULL DEFAULT now(),
-    net_usd         numeric(12,2),                      -- after discounted
-    PRIMARY KEY (run_id, order_id, line_id)
+
+-- stg_square_order_lines
+-- grain is one row per (run_id, order_id, line_uid).
+CREATE TABLE IF NOT EXISTS stg_square_order_lines (
+    run_id                  uuid NOT NULL REFERENCES run_ledger(run_id) ON DELETE CASCADE,
+    order_id                text NOT NULL,
+    line_uid                text NOT NULL,
+    catalog_object_id       text,
+    name                    text,
+    variation_name          text,
+    quantity                numeric(14,3),
+    base_price_money        numeric(12,2),
+    gross_sales_money       numeric(12,2),
+    total_discount_money    numeric(12,2),
+    total_tax_money         numeric(12,2),
+    net_sales_money         numeric(12,2),
+    currency_code           text,
+    created_at              timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (run_id, order_id, line_uid)
 );
+
+
+
+-- stg_orders
+-- grain is one row per (run_id, tender_id)
+CREATE TABLE IF NOT EXISTS stg_square_tenders (
+    run_id              uuid NOT NULL REFERENCES run_ledger(run_id) ON DELETE CASCADE,
+    order_id            text NOT NULL,
+    tender_id           text NOT NULL,
+    tender_type         text,
+    card_brand          text,
+    amount_money        numeric(12,2),
+    tip_money           numeric(12,2),
+    currency_code       text,
+    created_at          timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (run_id, order_id, tender_id)
+);
+
+
 
 
 
@@ -101,10 +90,10 @@ CREATE TABLE IF NOT EXISTS stg_order_items (
 CREATE TABLE IF NOT EXISTS reject_rows (
     reject_id       bigserial PRIMARY KEY,
     run_id          uuid NOT NULL REFERENCES run_ledger(run_id) ON DELETE CASCADE,
-    table_name      text NOT NULL,              -- which stg_* this reject was collected from
-    source_ref      integer NOT NULL,           -- where it came from, -- e.g. `'users[12]'`, `'carts[4].products[2]'`, .
-    raw_payload     jsonb NOT NULL,             -- storing `{"raw": {...}, "canonical": {...}}` or `{"raw": {...}}` from ingestion,
-    reason_code     text NOT NULL,              -- or the JSON object for JSONL
+    table_name      text NOT NULL,
+    source_ref      integer NOT NULL,
+    raw_payload     jsonb NOT NULL,
+    reason_code     text NOT NULL,
     reason_detail   text NOT NULL,
     rejected_at     timestamptz NOT NULL DEFAULT now()
 );

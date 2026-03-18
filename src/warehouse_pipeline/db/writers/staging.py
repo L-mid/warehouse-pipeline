@@ -8,15 +8,6 @@ from psycopg.types.json import Jsonb
 
 @dataclass(frozen=True)
 class StagingTableSpec:
-    """
-    Whitelisted staging table SQL values.
-
-    - `columns` excludes `run_id` and `created_at`.
-    - `key_cols` are the per-run key columns (excluding `run_id`).
-    They match this staging PK shape:
-    `PRIMARY KEY (run_id, *key_cols)`.
-    """
-
     table_name: str
     columns: tuple[str, ...]
     key_cols: tuple[str, ...]
@@ -24,70 +15,60 @@ class StagingTableSpec:
 
     @property
     def work_table_name(self) -> str:
-        # here, temp/work table name is derived from the whitelisted staging `table_name` only.
         return f"_work_{self.table_name}"
 
 
 # wrap all staging specs for data together.
 TABLE_SPECS: dict[str, StagingTableSpec] = {
-    "stg_customers": StagingTableSpec(
-        table_name="stg_customers",
-        columns=(
-            "customer_id",
-            "first_name",
-            "last_name",
-            "full_name",
-            "email",
-            "phone",
-            "city",
-            "country",
-            "company",
-        ),
-        key_cols=("customer_id",),
-    ),
-    "stg_products": StagingTableSpec(
-        table_name="stg_products",
-        columns=(
-            "product_id",
-            "sku",
-            "title",
-            "brand",
-            "category",
-            "price_usd",
-            "discount_pct",
-            "rating",
-            "stock",
-        ),
-        key_cols=("product_id",),
-    ),
-    "stg_orders": StagingTableSpec(
-        table_name="stg_orders",
+    "stg_square_orders": StagingTableSpec(
+        table_name="stg_square_orders",
         columns=(
             "order_id",
+            "location_id",
             "customer_id",
-            "order_ts",
-            "country",
-            "status",
-            "total_usd",
-            "total_products",
-            "total_quantity",
+            "state",
+            "created_at_source",
+            "updated_at_source",
+            "closed_at_source",
+            "currency_code",
+            "total_money",
+            "net_total_money",
+            "total_discount_money",
+            "total_tax_money",
+            "total_tip_money",
         ),
         key_cols=("order_id",),
     ),
-    "stg_order_items": StagingTableSpec(
-        table_name="stg_order_items",
+    "stg_square_order_lines": StagingTableSpec(
+        table_name="stg_square_order_lines",
         columns=(
             "order_id",
-            "line_id",
-            "product_id",
-            "sku",
-            "qty",
-            "unit_price_usd",
-            "discount_pct",
-            "gross_usd",
-            "net_usd",
+            "line_uid",
+            "catalog_object_id",
+            "name",
+            "variation_name",
+            "quantity",
+            "base_price_money",
+            "gross_sales_money",
+            "total_discount_money",
+            "total_tax_money",
+            "net_sales_money",
+            "currency_code",
         ),
-        key_cols=("order_id", "line_id"),
+        key_cols=("order_id", "line_uid"),
+    ),
+    "stg_square_tenders": StagingTableSpec(
+        table_name="stg_square_tenders",
+        columns=(
+            "order_id",
+            "tender_id",
+            "tender_type",
+            "card_brand",
+            "amount_money",
+            "tip_money",
+            "currency_code",
+        ),
+        key_cols=("order_id", "tender_id"),
     ),
 }
 

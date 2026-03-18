@@ -19,3 +19,4 @@ runs/**
 .venv
 .pytest_cache
 .vscode
+action_quota/
