@@ -2,12 +2,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from psycopg import Connection
 
 from warehouse_pipeline.db.run_ledger import RunMode
+from warehouse_pipeline.dq.thresholds import (
+    FRESHNESS_HARD_HOURS,
+    FRESHNESS_WARN_HOURS,
+    VOLUME_BASELINE_MIN_RUNS,
+    VOLUME_RATIO_HARD_HIGH,
+    VOLUME_RATIO_HARD_LOW,
+    VOLUME_RATIO_WARN_HIGH,
+    VOLUME_RATIO_WARN_LOW,
+)
 
 GateSeverity = Literal["hard", "soft"]
 
@@ -38,8 +47,14 @@ class GateDecision:
     warnings: tuple[GateFailure, ...]
 
 
+@dataclass(frozen=True)
+class MetricRow:
+    metric_value: Decimal
+    passed: bool
+    details_json: dict[str, Any]
+
+
 def _get_run_mode(conn: Connection, *, run_id: UUID) -> RunMode:
-    """Reads the pipeline mode from `run_ledger`."""
     row = conn.execute(
         """
         SELECT mode
@@ -57,15 +72,12 @@ def _get_run_mode(conn: Connection, *, run_id: UUID) -> RunMode:
     return mode
 
 
-def _fetch_metric(conn: Connection, *, run_id: UUID, table_name: str, metric_name: str) -> Decimal:
-    """
-    Fetches one metric value from `dq_results`.
-
-    Gating only runs after DQ has written its full metric set and is done
-    """
+def _fetch_metric(
+    conn: Connection, *, run_id: UUID, table_name: str, metric_name: str
+) -> MetricRow:
     row = conn.execute(
         """
-        SELECT metric_value
+        SELECT metric_value, passed, details_json
         FROM dq_results
         WHERE run_id = %s
           AND table_name = %s
@@ -74,17 +86,45 @@ def _fetch_metric(conn: Connection, *, run_id: UUID, table_name: str, metric_nam
         (run_id, table_name, metric_name),
     ).fetchone()
 
-    # Missing metric rows as this stage error.
     if row is None:
         raise ValueError(
             f"missing DQ metric for gating: run_id={run_id} "
             f"table_name={table_name!r} metric_name={metric_name!r}"
         )
 
-    return Decimal(str(row[0]))
+    return MetricRow(
+        metric_value=Decimal(str(row[0])),
+        passed=bool(row[1]),
+        details_json=dict(row[2] or {}),
+    )
 
 
-# failure types
+def _try_fetch_metric(
+    conn: Connection,
+    *,
+    run_id: UUID,
+    table_name: str,
+    metric_name: str,
+) -> MetricRow | None:
+    row = conn.execute(
+        """
+        SELECT metric_value, passed, details_json
+        FROM dq_results
+        WHERE run_id = %s
+          AND table_name = %s
+          AND metric_name = %s
+        """,
+        (run_id, table_name, metric_name),
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    return MetricRow(
+        metric_value=Decimal(str(row[0])),
+        passed=bool(row[1]),
+        details_json=dict(row[2] or {}),
+    )
 
 
 def _hard_failure(
@@ -121,55 +161,54 @@ def _soft_warning(
     )
 
 
-def evaluate_stage_gates(conn: Connection, *, run_id: UUID) -> GateDecision:
-    """
-    Evaluate the overall pass or fail gates from DQ metrics.
-
-    - all duplicate key counts must be 0
-    - all relationship break counts must be 0
-    - snapshot mode: reject rate must be exactly 0 for every stage table
-    - live mode: reject rate may be non-zero, but must stay <= 1%
-    """
+def evaluate_model_gates(conn: Connection, *, run_id: UUID) -> GateDecision:
     mode = _get_run_mode(conn, run_id=run_id)
 
     failures: list[GateFailure] = []
     warnings: list[GateFailure] = []
 
     stage_tables = (
-        "stg_customers",
-        "stg_products",
-        "stg_orders",
-        "stg_order_items",
+        "stg_square_orders",
+        "stg_square_order_lines",
+        "stg_square_tenders",
     )
 
-    # Basic table health
-    for table_name in stage_tables:
+    fact_tables = (
+        "fact_orders",
+        "fact_order_lines",
+        "fact_order_tenders",
+    )
+
+    # Basic row-count visibility.
+    for table_name in (*stage_tables, *fact_tables):
+        row_count_metric_name = (
+            "row_count" if table_name.startswith("stg_") else "warehouse_parity.fact_row_count"
+        )
         row_count = _fetch_metric(
-            conn, run_id=run_id, table_name=table_name, metric_name="row_count"
-        )
-        duplicate_keys = _fetch_metric(
             conn,
             run_id=run_id,
             table_name=table_name,
-            metric_name="duplicate_keys.count",
-        )
-        reject_rate = _fetch_metric(
-            conn,
-            run_id=run_id,
-            table_name=table_name,
-            metric_name="reject_rows.reject_rate",
-        )
+            metric_name=row_count_metric_name,
+        ).metric_value
 
         if row_count == 0:
             warnings.append(
                 _soft_warning(
                     table_name=table_name,
-                    metric_name="row_count",
+                    metric_name=row_count_metric_name,
                     actual=row_count,
                     rule="expected > 0 rows",
                 )
             )
 
+    # Duplicate keys are always hard failures on stage.
+    for table_name in stage_tables:
+        duplicate_keys = _fetch_metric(
+            conn,
+            run_id=run_id,
+            table_name=table_name,
+            metric_name="duplicate_keys.count",
+        ).metric_value
         if duplicate_keys != 0:
             failures.append(
                 _hard_failure(
@@ -179,95 +218,116 @@ def evaluate_stage_gates(conn: Connection, *, run_id: UUID) -> GateDecision:
                     rule="must equal 0",
                 )
             )
+    # Freshness only makes sense for live/incremental.
+    if mode in ("live", "incremental"):
+        freshness = _fetch_metric(
+            conn,
+            run_id=run_id,
+            table_name="stg_square_orders",
+            metric_name="freshness.max_updated_at_age_hours",
+        ).metric_value
 
-        # no rejections for snapshot mode.
-        if mode == "snapshot":
-            if reject_rate != 0:
+        if freshness > FRESHNESS_HARD_HOURS:
+            failures.append(
+                _hard_failure(
+                    table_name="stg_square_orders",
+                    metric_name="freshness.max_updated_at_age_hours",
+                    actual=freshness,
+                    rule=f"must be <= {FRESHNESS_HARD_HOURS} hours",
+                )
+            )
+        elif freshness > FRESHNESS_WARN_HOURS:
+            warnings.append(
+                _soft_warning(
+                    table_name="stg_square_orders",
+                    metric_name="freshness.max_updated_at_age_hours",
+                    actual=freshness,
+                    rule=f"warn when > {FRESHNESS_WARN_HOURS} hours",
+                )
+            )
+
+        # Volume gates only when enough baseline history exists.
+        for table_name in stage_tables:
+            sample_size = _fetch_metric(
+                conn,
+                run_id=run_id,
+                table_name=table_name,
+                metric_name="volume.sample_size",
+            ).metric_value
+            baseline_median = _fetch_metric(
+                conn,
+                run_id=run_id,
+                table_name=table_name,
+                metric_name="volume.row_count_baseline_median",
+            ).metric_value
+            ratio = _fetch_metric(
+                conn,
+                run_id=run_id,
+                table_name=table_name,
+                metric_name="volume.row_count_ratio_to_baseline",
+            ).metric_value
+
+            if sample_size < VOLUME_BASELINE_MIN_RUNS or baseline_median <= 0:
+                continue
+
+            if ratio < VOLUME_RATIO_HARD_LOW or ratio > VOLUME_RATIO_HARD_HIGH:
                 failures.append(
                     _hard_failure(
                         table_name=table_name,
-                        metric_name="reject_rows.reject_rate",
-                        actual=reject_rate,
-                        rule="snapshot runs require reject_rows.reject_rate == 0",
+                        metric_name="volume.row_count_ratio_to_baseline",
+                        actual=ratio,
+                        rule=(
+                            f"must stay within "
+                            f"[{VOLUME_RATIO_HARD_LOW}, {VOLUME_RATIO_HARD_HIGH}] "
+                            f"once baseline exists"
+                        ),
                     )
                 )
-
-        # in live mode rejection is tolerated within tolerance
-        else:
-            live_threshold = Decimal("0.010000")
-            live_warn_threshold = Decimal("0.005000")
-
-            # hard
-            if reject_rate > live_threshold:
-                failures.append(
-                    _hard_failure(
-                        table_name=table_name,
-                        metric_name="reject_rows.reject_rate",
-                        actual=reject_rate,
-                        rule="live runs require reject_rows.reject_rate <= 0.010000",
-                    )
-                )
-
-            # soft
-            elif reject_rate > live_warn_threshold:
+            elif ratio < VOLUME_RATIO_WARN_LOW or ratio > VOLUME_RATIO_WARN_HIGH:
                 warnings.append(
                     _soft_warning(
                         table_name=table_name,
-                        metric_name="reject_rows.reject_rate",
-                        actual=reject_rate,
-                        rule="warn when live reject_rows.reject_rate > 0.005000",
+                        metric_name="volume.row_count_ratio_to_baseline",
+                        actual=ratio,
+                        rule=(f"warn outside [{VOLUME_RATIO_WARN_LOW}, {VOLUME_RATIO_WARN_HIGH}]"),
                     )
                 )
 
-    # table referential checks to other tables
-    missing_customers = _fetch_metric(
-        conn,
-        run_id=run_id,
-        table_name="stg_orders",
-        metric_name="missing_customers.count",
-    )
-    if missing_customers != 0:
-        failures.append(
-            _hard_failure(
-                table_name="stg_orders",
-                metric_name="missing_customers.count",
-                actual=missing_customers,
-                rule="must equal 0",
+    # Referential integrity: child rows must have a parent order.
+    for table_name in ("stg_square_order_lines", "stg_square_tenders"):
+        orphan_orders = _fetch_metric(
+            conn,
+            run_id=run_id,
+            table_name=table_name,
+            metric_name="orphan_orders.count",
+        ).metric_value
+        if orphan_orders != 0:
+            failures.append(
+                _hard_failure(
+                    table_name=table_name,
+                    metric_name="orphan_orders.count",
+                    actual=orphan_orders,
+                    rule="must equal 0",
+                )
             )
-        )
 
-    missing_products = _fetch_metric(
-        conn,
-        run_id=run_id,
-        table_name="stg_order_items",
-        metric_name="missing_products.count",
-    )
-    if missing_products != 0:
-        failures.append(
-            _hard_failure(
-                table_name="stg_order_items",
-                metric_name="missing_products.count",
-                actual=missing_products,
-                rule="must equal 0",
+    # Warehouse parity: fact counts for this source_run_id must match stage counts.
+    for table_name in fact_tables:
+        count_diff = _fetch_metric(
+            conn,
+            run_id=run_id,
+            table_name=table_name,
+            metric_name="warehouse_parity.count_diff",
+        ).metric_value
+        if count_diff != 0:
+            failures.append(
+                _hard_failure(
+                    table_name=table_name,
+                    metric_name="warehouse_parity.count_diff",
+                    actual=count_diff,
+                    rule="must equal 0",
+                )
             )
-        )
-
-    orphan_orders = _fetch_metric(
-        conn,
-        run_id=run_id,
-        table_name="stg_order_items",
-        metric_name="orphan_orders.count",
-    )
-
-    if orphan_orders != 0:
-        failures.append(
-            _hard_failure(
-                table_name="stg_order_items",
-                metric_name="orphan_orders.count",
-                actual=orphan_orders,
-                rule="must equal 0",
-            )
-        )
 
     return GateDecision(
         run_id=run_id,
@@ -276,3 +336,82 @@ def evaluate_stage_gates(conn: Connection, *, run_id: UUID) -> GateDecision:
         failures=tuple(failures),
         warnings=tuple(warnings),
     )
+
+
+def render_dq_summary(conn: Connection, *, run_id: UUID, decision: GateDecision) -> str:
+    lines: list[str] = []
+
+    headline = "DQ PASS" if decision.passed else "DQ FAIL"
+    lines.append(
+        f"{headline}: {len(decision.failures)} hard failure(s), {len(decision.warnings)} warning(s)"
+    )
+
+    freshness = _try_fetch_metric(
+        conn,
+        run_id=run_id,
+        table_name="stg_square_orders",
+        metric_name="freshness.max_updated_at_age_hours",
+    )
+    if freshness is not None:
+        lines.append(
+            f"orders freshness: {freshness.metric_value.normalize()}h since latest updated_at"
+        )
+
+    for table_name in (
+        "stg_square_orders",
+        "stg_square_order_lines",
+        "stg_square_tenders",
+    ):
+        ratio = _try_fetch_metric(
+            conn,
+            run_id=run_id,
+            table_name=table_name,
+            metric_name="volume.row_count_ratio_to_baseline",
+        )
+        sample_size = _try_fetch_metric(
+            conn,
+            run_id=run_id,
+            table_name=table_name,
+            metric_name="volume.sample_size",
+        )
+        if ratio is not None and sample_size is not None and sample_size.metric_value > 0:
+            lines.append(
+                f"{table_name} volume ratio: {ratio.metric_value.normalize()} "
+                f"(baseline n={int(sample_size.metric_value)})"
+            )
+
+    for table_name in ("stg_square_order_lines", "stg_square_tenders"):
+        orphan_metric = _try_fetch_metric(
+            conn,
+            run_id=run_id,
+            table_name=table_name,
+            metric_name="orphan_orders.count",
+        )
+        if orphan_metric is not None:
+            lines.append(f"{table_name} orphan orders: {int(orphan_metric.metric_value)}")
+
+    for table_name in ("fact_orders", "fact_order_lines", "fact_order_tenders"):
+        parity_metric = _try_fetch_metric(
+            conn,
+            run_id=run_id,
+            table_name=table_name,
+            metric_name="warehouse_parity.count_diff",
+        )
+        if parity_metric is not None:
+            lines.append(f"{table_name} parity diff: {int(parity_metric.metric_value)}")
+
+    if decision.failures:
+        lines.append("hard failures:")
+        for failure in decision.failures:
+            lines.append(
+                f"  - {failure.table_name}.{failure.metric_name}={failure.actual} ({failure.rule})"
+            )
+
+    if decision.warnings:
+        lines.append("warnings:")
+        for warning in decision.warnings:
+            lines.append(
+                f"  - {warning.table_name}.{warning.metric_name}={warning.actual} ({warning.rule})"
+            )
+
+    return "\n".join(lines)

@@ -39,3 +39,33 @@ CREATE INDEX IF NOT EXISTS dq_results_run_table_idx
 
 CREATE INDEX IF NOT EXISTS dq_results_check_idx
     ON dq_results (run_id, table_name, check_name);
+
+
+-- Warehouse inner indexes
+
+CREATE INDEX IF NOT EXISTS fact_orders_business_date_idx
+    ON fact_orders (business_date);
+
+CREATE INDEX IF NOT EXISTS fact_orders_state_idx
+    ON fact_orders (order_state);
+
+CREATE INDEX IF NOT EXISTS fact_orders_location_idx
+    ON fact_orders (location_id);
+
+CREATE INDEX IF NOT EXISTS fact_order_lines_business_date_idx
+    ON fact_order_lines (business_date);
+
+CREATE INDEX IF NOT EXISTS fact_order_lines_order_state_idx
+    ON fact_order_lines (order_state);
+
+CREATE INDEX IF NOT EXISTS fact_order_lines_catalog_idx
+    ON fact_order_lines (catalog_object_id);
+
+CREATE INDEX IF NOT EXISTS fact_order_tenders_business_date_idx
+    ON fact_order_tenders (business_date);
+
+CREATE INDEX IF NOT EXISTS fact_order_tenders_type_idx
+    ON fact_order_tenders (tender_type);
+
+CREATE INDEX IF NOT EXISTS fact_order_tenders_order_state_idx
+    ON fact_order_tenders (order_state);

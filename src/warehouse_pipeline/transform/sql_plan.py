@@ -12,19 +12,15 @@ DEFAULT_SQL_DIR = Path(__file__).resolve().parents[3] / "sql" / "transform"
 
 # name of transform, and files.
 _PLAN_FILES: dict[TransformStep, tuple[str, ...]] = {
-    "build_dims": (
-        "100_dim_customer.sql",
-        "110_dim_date.sql",
-    ),
     "build_facts": (
-        "120_fact_orders.sql",
-        "130_fact_order_items.sql",
+        "100_fact_orders.sql",
+        "110_fact_order_lines.sql",
+        "120_fact_order_tenders.sql",
     ),
     "build_all": (
-        "100_dim_customer.sql",
-        "110_dim_date.sql",
-        "120_fact_orders.sql",
-        "130_fact_order_items.sql",
+        "100_fact_orders.sql",
+        "110_fact_order_lines.sql",
+        "120_fact_order_tenders.sql",
     ),
 }
 

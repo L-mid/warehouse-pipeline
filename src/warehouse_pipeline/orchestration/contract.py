@@ -32,10 +32,10 @@ class RunSpec:
     git_sha: str | None = None
 
     # disabled for now
-    run_dq: bool = False
-    run_transforms: bool = False
+    run_dq: bool = True
+    run_transforms: bool = True
     transform_step: TransformStep = "build_all"
-    publish_views: bool = False
+    publish_views: bool = True
 
     args_json: dict[str, Any] = field(default_factory=dict)
 

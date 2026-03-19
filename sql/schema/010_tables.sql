@@ -9,7 +9,7 @@
 CREATE TABLE IF NOT EXISTS run_ledger (
     run_id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     source_system   text NOT NULL DEFAULT 'square_orders',
-    mode            text NOT NULL CHECK (mode IN ('snapshot', 'live')),
+    mode text NOT NULL CHECK (mode IN ('snapshot', 'live', 'incremental')),
     snapshot_key    text,
     started_at      timestamptz NOT NULL DEFAULT now(),
     finished_at     timestamptz,

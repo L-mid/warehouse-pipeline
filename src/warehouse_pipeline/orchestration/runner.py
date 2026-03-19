@@ -19,8 +19,12 @@ from warehouse_pipeline.db.run_ledger import (
     record_cursor_state,
     record_extraction_window,
 )
-from warehouse_pipeline.dq.gates import GateDecision, evaluate_stage_gates
-from warehouse_pipeline.dq.runner import DQRunSummary, run_stage_dq
+from warehouse_pipeline.dq.gates import (
+    GateDecision,
+    evaluate_model_gates,
+    render_dq_summary,
+)
+from warehouse_pipeline.dq.runner import DQRunSummary, run_model_dq
 from warehouse_pipeline.extract import read_snapshot_extract
 from warehouse_pipeline.extract.contracts import RawExtract
 from warehouse_pipeline.extract.source_registry import get_source_adapter
@@ -124,22 +128,7 @@ def _resolve_and_record_window(
         },
     )
 
-    # later additions for Square?:
-    """
-    {
-    "source_system": "square_orders",
-    "watermark_column": "updated_at",
-    "strategy": "square_search_orders",
-    "native_incremental": true,
-    "low_boundary": "inclusive",
-    "high_boundary": "inclusive",
-    "sort_field": "UPDATED_AT",
-    "sort_order": "ASC"
-    }
-    """
-
-    conn.commit()  # window survives a later rollback on error
-    # (move this later so orch handles all commits)
+    conn.commit()
 
     logger.event(
         "extraction_window_resolved",
@@ -377,39 +366,7 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
                 duration_s=timings_s["stage_load"],
                 tables=list(stage_summary),
             )
-
-            ## -- dq
-            if spec.run_dq:
-                t0 = perf_counter()
-                logger.phase_started("dq")
-                dq_results = run_stage_dq(conn, run_id=run_id)
-                conn.commit()
-                dq_summary = _summarize_dq(dq_results)
-                timings_s["dq"] = perf_counter() - t0
-                logger.phase_finished(
-                    "dq",
-                    duration_s=timings_s["dq"],
-                    tables=list(dq_summary),
-                )
-
-                t0 = perf_counter()
-                logger.phase_started("gate")
-                gate_decision = evaluate_stage_gates(conn, run_id=run_id)
-                gate_summary = _summarize_gate(gate_decision)
-                timings_s["gate"] = perf_counter() - t0
-                logger.phase_finished(
-                    "gate",
-                    duration_s=timings_s["gate"],
-                    passed=gate_decision.passed,
-                    failures=len(gate_decision.failures),
-                    warnings=len(gate_decision.warnings),
-                )
-                if not gate_decision.passed:
-                    raise PipelineGateFailed(gate_decision)
-            else:
-                logger.event("dq_skipped")
-
-            ## -- transform, publish results.
+            # -- transform + publish
             if spec.run_transforms:
                 t0 = perf_counter()
                 logger.phase_started("transform_publish")
@@ -432,6 +389,37 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
                 )
             else:
                 logger.event("transform_publish_skipped")
+
+            # -- DQ + gate
+            if spec.run_dq:
+                t0 = perf_counter()
+                logger.phase_started("dq")
+                dq_results = run_model_dq(conn, run_id=run_id)
+                gate_decision = evaluate_model_gates(conn, run_id=run_id)
+
+                dq_summary = _summarize_dq(dq_results)
+                gate_summary = _summarize_gate(gate_decision)
+                gate_summary["summary_text"] = render_dq_summary(
+                    conn,
+                    run_id=run_id,
+                    decision=gate_decision,
+                )
+
+                conn.commit()
+
+                timings_s["dq"] = perf_counter() - t0
+                logger.phase_finished(
+                    "dq",
+                    duration_s=timings_s["dq"],
+                    passed=gate_decision.passed,
+                    hard_failures=len(gate_decision.failures),
+                    warnings=len(gate_decision.warnings),
+                )
+
+                if not gate_decision.passed:
+                    raise PipelineGateFailed(gate_decision)
+            else:
+                logger.event("dq_skipped")
 
             ## -- succeed the run.
 

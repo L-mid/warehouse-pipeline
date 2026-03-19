@@ -133,5 +133,10 @@ def handle_run(args: argparse.Namespace) -> int:
         ew = manifest.extraction_window
         print(f"  window: {ew.get('low', 'n/a')} to {ew.get('high', 'n/a')}")
 
+    summary_text = manifest.gate.get("summary_text")
+    if summary_text:
+        print()
+        print(summary_text)
+
     # manifest's `"succeeded"` field chosen to determine success for CLI.
     return 0 if manifest.status == "succeeded" else 1
