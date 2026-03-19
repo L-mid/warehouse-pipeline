@@ -4,157 +4,170 @@ from decimal import Decimal
 
 import pytest
 
-from warehouse_pipeline.db.run_ledger import RunStart, create_run
-from warehouse_pipeline.dq.gates import evaluate_stage_gates
-from warehouse_pipeline.dq.runner import run_stage_dq
+from tests.integration.helpers.square import (
+    create_stage_run,
+    square_line,
+    square_order,
+    square_tender,
+)
+from warehouse_pipeline.dq.gates import evaluate_model_gates, render_dq_summary
+from warehouse_pipeline.dq.runner import run_model_dq
+from warehouse_pipeline.transform.warehouse_build import build_warehouse
+
+
+def _valid_orders() -> list[dict]:
+    return [
+        square_order(
+            order_id="ord-100",
+            state="COMPLETED",
+            created_at="2026-03-10T10:00:00Z",
+            updated_at="2026-03-10T10:05:00Z",
+            closed_at="2026-03-10T10:05:00Z",
+            total_money_cents=2300,
+            net_total_money_cents=2000,
+            total_discount_cents=200,
+            total_tax_cents=100,
+            line_items=[
+                square_line(
+                    uid="line-1",
+                    catalog_object_id="item-espresso",
+                    name="Espresso",
+                    quantity="1",
+                    base_price_cents=1200,
+                    gross_sales_cents=1200,
+                    net_sales_cents=1200,
+                )
+            ],
+            tenders=[
+                square_tender(
+                    tender_id="tender-1",
+                    tender_type="CARD",
+                    amount_cents=2300,
+                    card_brand="VISA",
+                )
+            ],
+        )
+    ]
 
 
 @pytest.mark.docker_required
-def test_dq_happy_path(conn) -> None:
-    """
-    Data quality runs all its metrics
-    and gating will assert those metrics are as desired
-    before returning `GateDecision`'s verdict.
-    """
-    run_id = create_run(
-        conn,
-        entry=RunStart(
-            # start run legder up
-            mode="snapshot",
-            source_system="dummyjson",
-            snapshot_key="dummyjson/v1",
-            git_sha="test-sha",
-            args_json={"test": "dq"},
-        ),
+def test_model_dq_and_gates_pass_on_valid_square_snapshot_build(conn) -> None:
+    run_id, _, _ = create_stage_run(conn, orders=_valid_orders(), mode="snapshot")
+    build_warehouse(conn, run_id=run_id)
+
+    summaries = run_model_dq(conn, run_id=run_id)
+    decision = evaluate_model_gates(conn, run_id=run_id)
+    summary_text = render_dq_summary(conn, run_id=run_id, decision=decision)
+
+    assert tuple(summary.table_name for summary in summaries) == (
+        "stg_square_orders",
+        "stg_square_order_lines",
+        "stg_square_tenders",
+        "fact_orders",
+        "fact_order_lines",
+        "fact_order_tenders",
     )
-
-    # manually do staging insertion to avoid deps
-    # all are valid rows.
-
-    ## -- `stg_customers`
-    conn.execute(
-        """
-        INSERT INTO stg_customers (
-            run_id, customer_id, first_name, last_name, full_name,
-            email, phone, city, country, company
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        (
-            run_id,
-            1,
-            "Ada",
-            "Lovelace",
-            "Ada Lovelace",
-            "ada@example.com",
-            "123",
-            "London",
-            "UK",
-            "Analytical Engines Ltd",
-        ),
-    )
-
-    ## -- `stg_products`
-    conn.execute(
-        """
-        INSERT INTO stg_products (
-            run_id, product_id, sku, title, brand, category,
-            price_usd, discount_pct, rating, stock
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        (
-            run_id,
-            100,
-            "SKU-100",
-            "Chair",
-            "Acme",
-            "furniture",
-            Decimal("25.00"),
-            Decimal("0.0000"),
-            Decimal("4.500"),
-            10,
-        ),
-    )
-
-    ## -- `stg_orders`
-    conn.execute(
-        """
-        INSERT INTO stg_orders (
-            run_id, order_id, customer_id, order_ts, country, status,
-            total_usd, total_products, total_quantity
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        (
-            run_id,
-            10,
-            1,
-            "2026-03-07T10:00:00+00:00",
-            "UK",
-            "paid",
-            Decimal("25.00"),
-            1,
-            2,
-        ),
-    )
-
-    ## -- `stg_order_items`
-    conn.execute(
-        """
-        INSERT INTO stg_order_items (
-            run_id, order_id, line_id, product_id, sku, qty,
-            unit_price_usd, discount_pct, gross_usd, net_usd
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        (
-            run_id,
-            10,
-            1,
-            100,
-            "SKU-100",
-            2,
-            Decimal("12.50"),
-            Decimal("0.0000"),
-            Decimal("25.00"),
-            Decimal("25.00"),
-        ),
-    )
-
-    summaries = run_stage_dq(conn, run_id=run_id)
-    decision = evaluate_stage_gates(conn, run_id=run_id)
-
-    assert tuple(s.table_name for s in summaries) == (
-        "stg_customers",
-        "stg_products",
-        "stg_orders",
-        "stg_order_items",
-    )  # order and contained staging must be retained correctly.
-
-    # no fail
-    assert all(s.passed for s in summaries)
+    assert all(summary.passed for summary in summaries)
     assert decision.passed is True
     assert decision.failures == ()
+    assert "DQ PASS" in summary_text
+    assert "stg_square_order_lines orphan orders: 0" in summary_text
 
-    dq_count = conn.execute(
-        "SELECT COUNT(*) FROM dq_results WHERE run_id = %s",
-        (run_id,),
-    ).fetchone()[0]
-
-    assert dq_count < 1  # at least one occured
-
-    # example, customers must not missing
-
-    missing_customers = conn.execute(
+    orphan_lines = conn.execute(
         """
         SELECT metric_value
         FROM dq_results
         WHERE run_id = %s
-          AND table_name = 'stg_orders'
-          AND metric_name = 'missing_customers.count'
+          AND table_name = 'stg_square_order_lines'
+          AND metric_name = 'orphan_orders.count'
         """,
         (run_id,),
     ).fetchone()[0]
+    assert orphan_lines == Decimal("0.000000")
 
-    assert missing_customers == Decimal("0.000000")
+    fact_line_parity = conn.execute(
+        """
+        SELECT metric_value
+        FROM dq_results
+        WHERE run_id = %s
+          AND table_name = 'fact_order_lines'
+          AND metric_name = 'warehouse_parity.count_diff'
+        """,
+        (run_id,),
+    ).fetchone()[0]
+    assert fact_line_parity == Decimal("0.000000")
+
+
+@pytest.mark.docker_required
+def test_model_gates_fail_when_orphan_stage_rows_exist(conn) -> None:
+    run_id, _, _ = create_stage_run(conn, orders=_valid_orders(), mode="snapshot")
+    build_warehouse(conn, run_id=run_id)
+
+    conn.execute(
+        """
+        INSERT INTO stg_square_order_lines (
+            run_id,
+            order_id,
+            line_uid,
+            catalog_object_id,
+            name,
+            variation_name,
+            quantity,
+            base_price_money,
+            gross_sales_money,
+            total_discount_money,
+            total_tax_money,
+            net_sales_money,
+            currency_code
+        )
+        VALUES (
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            NULL,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s
+        )
+        """,
+        (
+            run_id,
+            "ord-missing",
+            "line-orphan",
+            "item-orphan",
+            "Ghost Item",
+            Decimal("1.000"),
+            Decimal("5.00"),
+            Decimal("5.00"),
+            Decimal("0.00"),
+            Decimal("0.00"),
+            Decimal("5.00"),
+            "USD",
+        ),
+    )
+
+    run_model_dq(conn, run_id=run_id)
+    decision = evaluate_model_gates(conn, run_id=run_id)
+    summary_text = render_dq_summary(conn, run_id=run_id, decision=decision)
+
+    assert decision.passed is False
+    assert any(
+        failure.table_name == "stg_square_order_lines"
+        and failure.metric_name == "orphan_orders.count"
+        and failure.actual == Decimal("1")
+        for failure in decision.failures
+    )
+    assert any(
+        failure.table_name == "fact_order_lines"
+        and failure.metric_name == "warehouse_parity.count_diff"
+        and failure.actual == Decimal("1")
+        for failure in decision.failures
+    )
+    assert "DQ FAIL" in summary_text
+    assert "stg_square_order_lines orphan orders: 1" in summary_text
