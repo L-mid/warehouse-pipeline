@@ -1,0 +1,284 @@
+{
+  "orders": [
+    {
+      "id": "ord-100",
+      "location_id": "LOC-1",
+      "customer_id": "CUST-1",
+      "state": "COMPLETED",
+      "created_at": "2026-03-10T10:00:00Z",
+      "updated_at": "2026-03-10T10:05:00Z",
+      "closed_at": "2026-03-10T10:05:00Z",
+      "total_money": {
+        "amount": 2300,
+        "currency": "USD"
+      },
+      "total_discount_money": {
+        "amount": 200,
+        "currency": "USD"
+      },
+      "total_tax_money": {
+        "amount": 100,
+        "currency": "USD"
+      },
+      "total_tip_money": {
+        "amount": 0,
+        "currency": "USD"
+      },
+      "net_amounts": {
+        "total_money": {
+          "amount": 2000,
+          "currency": "USD"
+        },
+        "discount_money": {
+          "amount": 200,
+          "currency": "USD"
+        },
+        "tax_money": {
+          "amount": 100,
+          "currency": "USD"
+        }
+      },
+      "line_items": [
+        {
+          "uid": "line-espresso",
+          "catalog_object_id": "item-espresso",
+          "name": "Espresso",
+          "quantity": "1",
+          "base_price_money": {
+            "amount": 1200,
+            "currency": "USD"
+          },
+          "gross_sales_money": {
+            "amount": 1200,
+            "currency": "USD"
+          },
+          "total_discount_money": {
+            "amount": 0,
+            "currency": "USD"
+          },
+          "total_tax_money": {
+            "amount": 0,
+            "currency": "USD"
+          },
+          "total_money": {
+            "amount": 1200,
+            "currency": "USD"
+          }
+        },
+        {
+          "uid": "line-cookie",
+          "catalog_object_id": "item-cookie",
+          "name": "Cookie",
+          "quantity": "2",
+          "base_price_money": {
+            "amount": 400,
+            "currency": "USD"
+          },
+          "gross_sales_money": {
+            "amount": 800,
+            "currency": "USD"
+          },
+          "total_discount_money": {
+            "amount": 0,
+            "currency": "USD"
+          },
+          "total_tax_money": {
+            "amount": 0,
+            "currency": "USD"
+          },
+          "total_money": {
+            "amount": 800,
+            "currency": "USD"
+          }
+        }
+      ],
+      "tenders": [
+        {
+          "id": "tender-100",
+          "type": "CARD",
+          "amount_money": {
+            "amount": 2300,
+            "currency": "USD"
+          },
+          "tip_money": {
+            "amount": 0,
+            "currency": "USD"
+          },
+          "card_details": {
+            "card": {
+              "card_brand": "VISA"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ord-101",
+      "location_id": "LOC-1",
+      "customer_id": "CUST-1",
+      "state": "COMPLETED",
+      "created_at": "2026-03-10T11:00:00Z",
+      "updated_at": "2026-03-10T11:05:00Z",
+      "closed_at": "2026-03-10T11:05:00Z",
+      "total_money": {
+        "amount": 1100,
+        "currency": "USD"
+      },
+      "total_discount_money": {
+        "amount": 0,
+        "currency": "USD"
+      },
+      "total_tax_money": {
+        "amount": 100,
+        "currency": "USD"
+      },
+      "total_tip_money": {
+        "amount": 0,
+        "currency": "USD"
+      },
+      "net_amounts": {
+        "total_money": {
+          "amount": 1000,
+          "currency": "USD"
+        },
+        "discount_money": {
+          "amount": 0,
+          "currency": "USD"
+        },
+        "tax_money": {
+          "amount": 100,
+          "currency": "USD"
+        }
+      },
+      "line_items": [
+        {
+          "uid": "line-bagel",
+          "catalog_object_id": "item-bagel",
+          "name": "Bagel",
+          "quantity": "1",
+          "base_price_money": {
+            "amount": 1000,
+            "currency": "USD"
+          },
+          "gross_sales_money": {
+            "amount": 1000,
+            "currency": "USD"
+          },
+          "total_discount_money": {
+            "amount": 0,
+            "currency": "USD"
+          },
+          "total_tax_money": {
+            "amount": 0,
+            "currency": "USD"
+          },
+          "total_money": {
+            "amount": 1000,
+            "currency": "USD"
+          }
+        }
+      ],
+      "tenders": [
+        {
+          "id": "tender-101",
+          "type": "CASH",
+          "amount_money": {
+            "amount": 1100,
+            "currency": "USD"
+          },
+          "tip_money": {
+            "amount": 0,
+            "currency": "USD"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ord-102",
+      "location_id": "LOC-1",
+      "customer_id": "CUST-1",
+      "state": "COMPLETED",
+      "created_at": "2026-03-11T09:00:00Z",
+      "updated_at": "2026-03-11T09:02:00Z",
+      "closed_at": "2026-03-11T09:02:00Z",
+      "total_money": {
+        "amount": 1500,
+        "currency": "USD"
+      },
+      "total_discount_money": {
+        "amount": 0,
+        "currency": "USD"
+      },
+      "total_tax_money": {
+        "amount": 0,
+        "currency": "USD"
+      },
+      "total_tip_money": {
+        "amount": 0,
+        "currency": "USD"
+      },
+      "net_amounts": {
+        "total_money": {
+          "amount": 1500,
+          "currency": "USD"
+        },
+        "discount_money": {
+          "amount": 0,
+          "currency": "USD"
+        },
+        "tax_money": {
+          "amount": 0,
+          "currency": "USD"
+        }
+      },
+      "line_items": [
+        {
+          "uid": "line-muffin",
+          "catalog_object_id": "item-muffin",
+          "name": "Muffin",
+          "quantity": "1",
+          "base_price_money": {
+            "amount": 1500,
+            "currency": "USD"
+          },
+          "gross_sales_money": {
+            "amount": 1500,
+            "currency": "USD"
+          },
+          "total_discount_money": {
+            "amount": 0,
+            "currency": "USD"
+          },
+          "total_tax_money": {
+            "amount": 0,
+            "currency": "USD"
+          },
+          "total_money": {
+            "amount": 1500,
+            "currency": "USD"
+          }
+        }
+      ],
+      "tenders": [
+        {
+          "id": "tender-102",
+          "type": "CARD",
+          "amount_money": {
+            "amount": 1500,
+            "currency": "USD"
+          },
+          "tip_money": {
+            "amount": 0,
+            "currency": "USD"
+          },
+          "card_details": {
+            "card": {
+              "card_brand": "MASTERCARD"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "total": 3
+}

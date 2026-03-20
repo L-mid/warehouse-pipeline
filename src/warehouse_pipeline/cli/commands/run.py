@@ -95,7 +95,6 @@ def handle_run(args: argparse.Namespace) -> int:
         runs_root=Path(args.runs_root),
         page_size=args.page_size,
         watermark_column=args.watermark_column,
-        transform_step=args.transform_step,
         since=args.since,
         until=args.until,
         overlap_window=args.overlap,

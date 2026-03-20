@@ -42,12 +42,18 @@ make down
 make up
 pipeline db init
 
-# run the pipeline on a pinned Square snapshot
-# in data/snapshots/square_orders/<snapshot_key>/orders.json:
-pipeline run --mode snapshot --snapshot sandbox_v1 --with-dq --with-warehouse
+# run the pipeline on a commited Square snapshot
+pipeline run --mode snapshot --snapshot sandbox_v1
 
-# or run live against Square Sandbox:
-pipeline run --mode live --with-dq --with-warehouse
+# You can also run live against the Square Sandbox API.
+# Live mode requires Square Sandbox credentials. In the Square Developer Console,
+# create an application, then copy its Sandbox Access Token and Sandbox location ID.
+# Set them as `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_IDS` before running
+
+$env:SQUARE_ACCESS_TOKEN="your-square-sandbox-token"
+$env:SQUARE_LOCATION_IDS="your-location-id"
+
+pipeline run --mode live
 ```
 Upon completion, the CLI prints a run summary including the `run_id` and final status.
 
