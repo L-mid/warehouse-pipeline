@@ -65,18 +65,6 @@ def register_run_commands(subparsers: argparse._SubParsersAction) -> None:
         help="Examples: '7d', '1h', '30m', '2d6h30m'. Default: 7d.",
     )
 
-    # temporarliy skip
-    run.add_argument(
-        "--with-dq",
-        action="store_true",
-        help="Run DQ + gate checks. Left off for refactor",
-    )
-    run.add_argument(
-        "--with-warehouse",
-        action="store_true",
-        help="Run warehouse build + publish. Left off for refactor.",
-    )
-
     run.set_defaults(handler=handle_run)
 
 
@@ -107,12 +95,10 @@ def handle_run(args: argparse.Namespace) -> int:
         runs_root=Path(args.runs_root),
         page_size=args.page_size,
         watermark_column=args.watermark_column,
+        transform_step=args.transform_step,
         since=args.since,
         until=args.until,
         overlap_window=args.overlap,
-        run_dq=args.with_dq,
-        run_transforms=args.with_warehouse,
-        publish_views=args.with_warehouse,
     )
 
     # pipeline.

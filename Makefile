@@ -13,6 +13,12 @@ down:
 init:
 	pipeline db init
 
+demo:
+	$(MAKE) down
+	$(MAKE) up
+	pipeline db init
+	pipeline run --mode snapshot --snapshot smoke --with-dq --with-warehouse
+
 test:
 	$(PY) -m pytest -q
 

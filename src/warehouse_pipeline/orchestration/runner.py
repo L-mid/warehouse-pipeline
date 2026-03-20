@@ -366,60 +366,55 @@ def run_pipeline(spec: RunSpec, *, database_url: str | None = None) -> RunManife
                 duration_s=timings_s["stage_load"],
                 tables=list(stage_summary),
             )
-            # -- transform + publish
-            if spec.run_transforms:
-                t0 = perf_counter()
-                logger.phase_started("transform_publish")
-                transform_result = build_warehouse(
-                    conn,
-                    run_id=run_id,
-                    step_name=spec.transform_step,
-                )
-                publish_result = apply_views(conn) if spec.publish_views else None
-                conn.commit()
 
-                transform_summary = _summarize_transform(transform_result)
-                publish_summary = _summarize_publish(publish_result)
-                timings_s["transform_publish"] = perf_counter() - t0
-                logger.phase_finished(
-                    "transform_publish",
-                    duration_s=timings_s["transform_publish"],
-                    transform_files=transform_summary.get("files_ran", []),
-                    publish_files=publish_summary.get("files_ran", []),
-                )
-            else:
-                logger.event("transform_publish_skipped")
+            # -- transform + publish
+            t0 = perf_counter()
+            logger.phase_started("transform_publish")
+            transform_result = build_warehouse(
+                conn,
+                run_id=run_id,
+                step_name=spec.transform_step,
+            )
+            publish_result = apply_views(conn)
+            conn.commit()
+
+            transform_summary = _summarize_transform(transform_result)
+            publish_summary = _summarize_publish(publish_result)
+            timings_s["transform_publish"] = perf_counter() - t0
+            logger.phase_finished(
+                "transform_publish",
+                duration_s=timings_s["transform_publish"],
+                transform_files=transform_summary.get("files_ran", []),
+                publish_files=publish_summary.get("files_ran", []),
+            )
 
             # -- DQ + gate
-            if spec.run_dq:
-                t0 = perf_counter()
-                logger.phase_started("dq")
-                dq_results = run_model_dq(conn, run_id=run_id)
-                gate_decision = evaluate_model_gates(conn, run_id=run_id)
+            t0 = perf_counter()
+            logger.phase_started("dq")
+            dq_results = run_model_dq(conn, run_id=run_id)
+            gate_decision = evaluate_model_gates(conn, run_id=run_id)
 
-                dq_summary = _summarize_dq(dq_results)
-                gate_summary = _summarize_gate(gate_decision)
-                gate_summary["summary_text"] = render_dq_summary(
-                    conn,
-                    run_id=run_id,
-                    decision=gate_decision,
-                )
+            dq_summary = _summarize_dq(dq_results)
+            gate_summary = _summarize_gate(gate_decision)
+            gate_summary["summary_text"] = render_dq_summary(
+                conn,
+                run_id=run_id,
+                decision=gate_decision,
+            )
 
-                conn.commit()
+            conn.commit()
 
-                timings_s["dq"] = perf_counter() - t0
-                logger.phase_finished(
-                    "dq",
-                    duration_s=timings_s["dq"],
-                    passed=gate_decision.passed,
-                    hard_failures=len(gate_decision.failures),
-                    warnings=len(gate_decision.warnings),
-                )
+            timings_s["dq"] = perf_counter() - t0
+            logger.phase_finished(
+                "dq",
+                duration_s=timings_s["dq"],
+                passed=gate_decision.passed,
+                hard_failures=len(gate_decision.failures),
+                warnings=len(gate_decision.warnings),
+            )
 
-                if not gate_decision.passed:
-                    raise PipelineGateFailed(gate_decision)
-            else:
-                logger.event("dq_skipped")
+            if not gate_decision.passed:
+                raise PipelineGateFailed(gate_decision)
 
             ## -- succeed the run.
 

@@ -30,14 +30,8 @@ class RunSpec:
     runs_root: Path = Path("runs")  # where runs
     page_size: int = 100
     git_sha: str | None = None
-
-    # disabled for now
-    run_dq: bool = True
-    run_transforms: bool = True
-    transform_step: TransformStep = "build_all"
-    publish_views: bool = True
-
     args_json: dict[str, Any] = field(default_factory=dict)
+    transform_step: TransformStep = "build_all"
 
     # incremental fields that are ignored for snapshot and live
     watermark_column: str = "updated_at"
