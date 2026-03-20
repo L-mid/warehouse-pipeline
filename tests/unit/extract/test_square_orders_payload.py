@@ -16,11 +16,15 @@ def test_square_orders_source_pull_incremental_builds_updated_at_window_and_meta
 
     seen: dict[str, object] = {}
 
-    def fake_search_orders(*, body: dict[str, object]) -> tuple[list[dict[str, object]], int]:
+    def fake_search_orders(
+        self,
+        *,
+        body: dict[str, object],
+    ) -> tuple[list[dict[str, object]], int]:
         seen["body"] = body
         return ([{"id": "ord-100"}], 2)
 
-    monkeypatch.setattr(src, "_search_orders", fake_search_orders)
+    monkeypatch.setattr(SquareOrdersSource, "_search_orders", fake_search_orders)
 
     window = ExtractionWindow(
         watermark_column="updated_at",

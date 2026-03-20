@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import cast
 from uuid import uuid4
@@ -12,8 +13,18 @@ from warehouse_pipeline.db.dq_results import DQMetricRow
 
 
 def test_dq_runner_happy_path(monkeypatch) -> None:
-    conn = cast(psycopg.Connection[tuple], FakeConnection())
     run_id = uuid4()
+    started_at = datetime(2026, 3, 19, 9, 0, tzinfo=UTC)
+
+    conn = cast(
+        psycopg.Connection[tuple],
+        FakeConnection(
+            fetchone_rows=[
+                (1,),  # _ensure_run_exists()
+                (run_id, "snapshot", "square_orders", started_at),  # _get_run_info()
+            ]
+        ),
+    )
 
     metric_rows = [
         DQMetricRow(
@@ -48,11 +59,10 @@ def test_dq_runner_happy_path(monkeypatch) -> None:
     deleted: list[tuple[object, str]] = []
     upserted: list[DQMetricRow] = []
 
-    monkeypatch.setattr(runner, "_ensure_run_exists", lambda conn, *, run_id: None)
     monkeypatch.setattr(
         runner,
         "_build_metrics_for_table",
-        lambda conn, *, table_name, run_id: metric_rows,
+        lambda conn, *, run_info, table_name: metric_rows,
     )
     monkeypatch.setattr(
         runner,

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import warehouse_pipeline.dq as dq
-from warehouse_pipeline.dq.gates import evaluate_stage_gates
-from warehouse_pipeline.dq.runner import run_stage_dq, run_table_dq
+from warehouse_pipeline.dq.gates import evaluate_model_gates, render_dq_summary
+from warehouse_pipeline.dq.runner import run_model_dq, run_table_dq
 
 
 def test_dq_init() -> None:
@@ -10,11 +10,13 @@ def test_dq_init() -> None:
         "DQRunSummary",
         "GateDecision",
         "GateFailure",
-        "evaluate_stage_gates",
-        "run_stage_dq",
+        "evaluate_model_gates",
+        "render_dq_summary",
+        "run_model_dq",
         "run_table_dq",
     }
 
-    assert dq.run_stage_dq is run_stage_dq
+    assert dq.run_model_dq is run_model_dq
     assert dq.run_table_dq is run_table_dq
-    assert dq.evaluate_stage_gates is evaluate_stage_gates
+    assert dq.evaluate_model_gates is evaluate_model_gates
+    assert dq.render_dq_summary is render_dq_summary

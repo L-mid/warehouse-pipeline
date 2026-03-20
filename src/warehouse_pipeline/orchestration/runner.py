@@ -149,14 +149,14 @@ def _extract_raw(
     *,
     window: ExtractionWindow | None = None,
 ) -> tuple[RawExtract, dict[str, Any]]:
-    adapter = get_source_adapter(spec.source_system)
-
     if spec.mode == "snapshot":
         extract = read_snapshot_extract(
             snapshot_root=spec.resolved_snapshot_root(),
             snapshot_key=spec.snapshot_key,
         )
         return extract, {}
+
+    adapter = get_source_adapter(spec.source_system)
 
     if spec.mode == "live":
         result = adapter.pull_full(page_size=spec.page_size)

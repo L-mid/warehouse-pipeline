@@ -8,70 +8,53 @@ import psycopg
 
 import warehouse_pipeline.db.work_tables as work_tables_mod
 from tests.unit.db.mocks import FakeConnection
-from warehouse_pipeline.db.writers.staging import StagingTableSpec
 
 
-def test_work_table_happy_path(monkeypatch) -> None:
+def test_work_table_happy_path() -> None:
     """
-    A temporary working table is created with good rows,
-    runs dedupe logic, and flushes results to the real staging table.
+    A temporary working table is created for a real staging table,
+    rows are inserted into it, and the dedupe flush returns the expected counts.
     """
 
-    conn = FakeConnection(fetchone_rows=[(1, 0)])
-    conn = cast(psycopg.Connection[tuple], conn)
+    fake_conn = FakeConnection(fetchone_rows=[(1, 0)])
+    conn = cast(psycopg.Connection[tuple], fake_conn)
     run_id = uuid4()
 
-    # gives it a fake spec
-    # used example is `stg_orders`
-    _ = StagingTableSpec(
-        table_name="stg_orders",
-        columns=(
-            "order_id",
-            "customer_id",
-            "order_ts",
-            "country",
-            "status",
-            "total_usd",
-            "total_products",
-            "total_quantity",
-        ),
-        key_cols=("order_id",),
-    )
+    work_tables_mod.prepare_work_table(conn, table_name="stg_square_orders")
 
-    # preparation prepares all tables for tmp before insertion.
-    work_tables_mod.prepare_work_table(conn, table_name="stg_orders")
-
-    # insert all good into work rows
     inserted_into_work = work_tables_mod.insert_work_rows(
         conn,
-        table_name="stg_orders",
+        table_name="stg_square_orders",
         run_id=run_id,
         rows=[
-            # a single row (will not dupe)
             work_tables_mod.WorkRow(
                 source_ref=1,
-                raw_payload={"id": 100},
+                raw_payload={"id": "ord-100"},
                 values={
-                    "order_id": 100,
-                    "customer_id": 1,
-                    "order_ts": None,
-                    "country": "UK",
-                    "status": "paid",
-                    "total_usd": Decimal("9.99"),
-                    "total_products": 1,
-                    "total_quantity": 2,
+                    "order_id": "ord-100",
+                    "location_id": "LOC-1",
+                    "customer_id": "cust-1",
+                    "state": "COMPLETED",
+                    "created_at_source": "2026-03-10T10:00:00Z",
+                    "updated_at_source": "2026-03-10T10:05:00Z",
+                    "closed_at_source": "2026-03-10T10:05:00Z",
+                    "currency_code": "USD",
+                    "total_money": Decimal("23.00"),
+                    "net_total_money": Decimal("20.00"),
+                    "total_discount_money": Decimal("2.00"),
+                    "total_tax_money": Decimal("1.00"),
+                    "total_tip_money": Decimal("0.00"),
                 },
             )
         ],
     )
-    # sort dupes and good rows, push to real staging
+
     inserted, duplicates = work_tables_mod.flush_work_table(
         conn,
-        table_name="stg_orders",
+        table_name="stg_square_orders",
         run_id=run_id,
     )
 
-    # only one insertion, one session.
     assert inserted_into_work == 1
     assert inserted == 1
-    assert duplicates == 0  # duplicates explicitly recorded.
+    assert duplicates == 0
