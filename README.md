@@ -110,4 +110,4 @@ Pipeline tested with the sepearation of:
 
 Additionally:
 - Tests use their own DB connection: `WAREHOUSE_TEST_DSN`.
-- CI runs `make demo` on every push (runs unit + integration).
+- CI runs on every push (runs unit + integration).
