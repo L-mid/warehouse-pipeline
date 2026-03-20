@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import cast
 from uuid import uuid4
+
+import psycopg
 
 import warehouse_pipeline.dq.gates as gates
 from warehouse_pipeline.dq.gates import MetricRow
@@ -42,8 +45,8 @@ def test_evaluate_model_gates_snapshot_happy_path(monkeypatch) -> None:
         "_fetch_metric",
         lambda conn, *, run_id, table_name, metric_name: metrics[(table_name, metric_name)],
     )
-
-    decision = gates.evaluate_model_gates(conn=object(), run_id=run_id)
+    conn = cast(psycopg.Connection[tuple], object())
+    decision = gates.evaluate_model_gates(conn=conn, run_id=run_id)
 
     assert decision.run_id == run_id
     assert decision.mode == "snapshot"

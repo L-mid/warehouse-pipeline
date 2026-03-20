@@ -8,7 +8,7 @@ from uuid import UUID
 
 from psycopg import Connection
 
-from warehouse_pipeline.db.run_ledger import RunStart, create_run
+from warehouse_pipeline.db.run_ledger import RunMode, RunStart, create_run
 from warehouse_pipeline.publish.views import PublishResult, apply_views
 from warehouse_pipeline.stage import MappedSquareOrders, StageTableLoadResult
 from warehouse_pipeline.stage.load import load_square_batches
@@ -120,7 +120,7 @@ def create_stage_run(
     conn: Connection,
     *,
     orders: Sequence[dict[str, Any]],
-    mode: str = "snapshot",
+    mode: RunMode = "snapshot",
 ) -> tuple[UUID, MappedSquareOrders, dict[str, StageTableLoadResult]]:
     run_id = create_run(
         conn,
@@ -141,7 +141,7 @@ def build_publish_run(
     conn: Connection,
     *,
     orders: Sequence[dict[str, Any]],
-    mode: str = "snapshot",
+    mode: RunMode = "snapshot",
 ) -> tuple[
     UUID,
     MappedSquareOrders,

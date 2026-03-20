@@ -136,14 +136,21 @@ def test_integration_smoke_snapshot_run_pipeline_succeeds(
     assert "run_succeeded" in logs_path.read_text(encoding="utf-8")
 
     with psycopg.connect(dsn) as conn:
-        run_status = conn.execute(
+        run_status_row = conn.execute(
             "SELECT status FROM run_ledger WHERE run_id = %s",
             (manifest.run_id,),
-        ).fetchone()[0]
+        ).fetchone()
+        assert run_status_row is not None
+        run_status = run_status_row[0]
         assert run_status == "succeeded"
 
-        fact_orders_count = conn.execute("SELECT COUNT(*) FROM fact_orders").fetchone()[0]
-        latest_dq_count = conn.execute("SELECT COUNT(*) FROM v_dq_results_latest").fetchone()[0]
+        fact_orders_count_row = conn.execute("SELECT COUNT(*) FROM fact_orders").fetchone()
+        assert fact_orders_count_row is not None
+        fact_orders_count = fact_orders_count_row[0]
+
+        latest_dq_count_row = conn.execute("SELECT COUNT(*) FROM v_dq_results_latest").fetchone()
+        assert latest_dq_count_row is not None
+        latest_dq_count = latest_dq_count_row[0]
 
     assert fact_orders_count == 2
     assert latest_dq_count > 0
