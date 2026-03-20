@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS stg_square_order_lines (
 
 
 
--- stg_orders
+-- stg_square_tenders
 -- grain is one row per (run_id, tender_id)
 CREATE TABLE IF NOT EXISTS stg_square_tenders (
     run_id              uuid NOT NULL REFERENCES run_ledger(run_id) ON DELETE CASCADE,

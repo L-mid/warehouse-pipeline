@@ -3,12 +3,12 @@ This is a Postgres staging ingest with rejects, data quality metrics, and exposi
 
 ## This project demonstrates an example pipeline for:
 - A Postgres-backed pipeline.
-- Snapshot and live extract modes from `https://dummyjson.com/`.
-- Typed mapping into `stg_*` in Postgres.
+- Snapshot and live extract modes for Square orders.
+- Typed mapping into `stg_square_*` tables in Postgres.
 - Rejection capturing.
-- Data quality metrics and gates,
+- Data quality metrics and gates.
 - Warehouse transforms.
-- Published latest-run views.
+- Published SQL views over the current warehouse tables.
 
 - Additonally: has pytest integration and unit tests that CI runs on every push.
 
@@ -32,8 +32,6 @@ python -m venv .venv
 python -m pip install -U pip
 pip install -e ".[dev]"
 
-# Boots up your local docker, runs a fast snapshot smoke pipeline, and runs tests.
-make demo
 ```
 
 
@@ -44,8 +42,12 @@ make down
 make up
 pipeline db init
 
-# run the pipeline on a snapshot:
-pipeline run --mode snapshot --snapshot v1
+# run the pipeline on a pinned Square snapshot
+# in data/snapshots/square_orders/<snapshot_key>/orders.json:
+pipeline run --mode snapshot --snapshot sandbox_v1 --with-dq --with-warehouse
+
+# or run live against Square Sandbox:
+pipeline run --mode live --with-dq --with-warehouse
 ```
 Upon completion, the CLI prints a run summary including the `run_id` and final status.
 
@@ -53,19 +55,24 @@ Upon completion, the CLI prints a run summary including the `run_id` and final s
 ### Inspect the data you just ran
 Some expamle inspection commands to see your data's in there:
 ```powershell
-docker compose exec -T db psql -U postgres -d warehouse -c "SELECT run_id, status, snapshot_key, started_at, finished_at FROM run_ledger ORDER BY started_at DESC LIMIT 5;"
-docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM v_fact_orders_latest LIMIT 10;"
-docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM v_fact_order_items_latest LIMIT 10;"
-docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM v_dim_customer_latest LIMIT 10;"
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT run_id, source_system, status, snapshot_key, started_at, finished_at FROM run_ledger ORDER BY started_at DESC LIMIT 5;"
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM stg_square_orders LIMIT 10;"
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM fact_orders LIMIT 10;"
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM fact_order_lines LIMIT 10;"
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM fact_order_tenders LIMIT 10;"
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM v_fact_orders_current LIMIT 10;"
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM v_fact_order_lines_current LIMIT 10;"
+docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM v_fact_order_tenders_current LIMIT 10;"
 docker compose exec -T db psql -U postgres -d warehouse -c "SELECT * FROM v_dq_results_latest ORDER BY table_name, metric_name LIMIT 20;"
 ```
 
 ### Example business queries that were published
 ```powershell
-Get-Content -Raw "sql\publish\metrics\010_revenue_by_day_country.sql" | docker compose exec -T db psql -U postgres -d warehouse
-Get-Content -Raw "sql\publish\metrics\020_top_products_per_week.sql" | docker compose exec -T db psql -U postgres -d warehouse
-Get-Content -Raw "sql\publish\metrics\030_paid_vs_refunded_counts.sql" | docker compose exec -T db psql -U postgres -d warehouse
-Get-Content -Raw "sql\publish\metrics\051_fanout_trap_right.sql" | docker compose exec -T db psql -U postgres -d warehouse
+Get-Content -Raw "sql\publish\metrics\010_daily_sales_summary.sql" | docker compose exec -T db psql -U postgres -d warehouse
+Get-Content -Raw "sql\publish\metrics\020_daily_sales_by_tender_type.sql" | docker compose exec -T db psql -U postgres -d warehouse
+Get-Content -Raw "sql\publish\metrics\030_weekly_top_items.sql" | docker compose exec -T db psql -U postgres -d warehouse
+Get-Content -Raw "sql\publish\metrics\040_daily_discount_summary.sql" | docker compose exec -T db psql -U postgres -d warehouse
+Get-Content -Raw "sql\publish\metrics\050_daily_order_state_summary.sql" | docker compose exec -T db psql -U postgres -d warehouse
 ```
 
 
@@ -84,8 +91,6 @@ pipeline db init
 # run tests only
 make test
 
-# run the 'inits and everything works' demo:
-make demo
 ```
 
 

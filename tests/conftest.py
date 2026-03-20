@@ -29,16 +29,6 @@ def repo_root() -> Path:
     return _find_repo_root(Path(__file__))
 
 
-@pytest.fixture(scope="session")
-def dummyjson_snapshots_dir(repo_root: Path) -> Path:
-    """
-    Path from root to the dummyjson ingested data snapshots directory.
-    `data/snapshots/dummyjson/{v1|smoke}/...`
-    Uses `repo_root` (`pyproject.toml`) placement as its base.
-    """
-    return repo_root / "data" / "snapshots" / "dummyjson"
-
-
 @pytest.fixture()
 def run_artifacts_dir(tmp_path: Path) -> Path:
     """

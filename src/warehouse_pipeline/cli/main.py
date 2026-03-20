@@ -30,16 +30,16 @@ def main(argv: list[str] | None = None) -> int:
 
 
     ### Example usage:
-    #### initalize the database to yourself locally.
+    #### initialize the database for yourself locally.
     `pipeline db init`
 
-    #### run the pipeline on a saved snapshot of pre-extracted DummyJson.
-    `pipeline run --mode snapshot --snapshot v1`
+    #### run the pipeline on a saved snapshot of pre-extracted Square orders.
+    `pipeline run --mode snapshot --snapshot sandbox_v1`
 
-    #### smoke the pipeline fast on a stable mock extraction.
+    #### smoke the pipeline fast on a stable saved snapshot.
     `pipeline run --mode snapshot --snapshot smoke`
 
-    #### extract from `DummyJson` live and run the pipeline on that (requires internet).
+    #### extract from Square live and run the pipeline on that.
     `pipeline run --mode live`
 
     #### run an incremental run on live data

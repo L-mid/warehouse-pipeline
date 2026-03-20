@@ -21,7 +21,8 @@ class PullResult:
 
 
 class SourceAdapter(Protocol):
-    source_system: str
+    @property
+    def source_system(self) -> str: ...
 
     def validate_watermark_column(self, watermark_column: str) -> None: ...
 

@@ -5,7 +5,7 @@
 PY ?= python
 
 up:
-	docker compose up -d
+	docker compose up -d --wait
 
 down:
 	docker compose down -v
@@ -15,13 +15,6 @@ init:
 
 test:
 	$(PY) -m pytest -q
-
-demo: up
-	$(PY) scripts/demo.py
-	$(PY) -m pytest -q
-
-warehouse:
-	pipeline warehouse build
 
 
 release:
