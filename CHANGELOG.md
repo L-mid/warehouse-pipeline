@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+- Updated the README and `main()`'s doctstring to reflect new transforms, expectations, and query changes.
+- Completely overhauled the ETL to Square Orders API staging, with new SQL warehouse transforms.
+- Decided on the final five flagship metrics this repo will be showing, under `/metrics`.
+- New DQ checks and a new DQ summary on the end of a run showing succinct counts and failures.
+
+### Fixed
+- Fixed the flaky Makefile `up` command error on Database startup races by using `--wait`.
+- New stub tests for square style staging, lots of deletion of old tests with DummyJson assumptions.
+- DQ checks now occur after transforms and publishing views to allow gating runs on them as well rather than just on staged data. May revert this change.
+
 ## v0.4.0 - 2026-03-15
 ### Added
 - 7-day run backfill implementation on `DummyJson` with a another integration test in `test_cli_pipeline_run` to ensure incremental defaults are as expected on two runs and run from CLI.

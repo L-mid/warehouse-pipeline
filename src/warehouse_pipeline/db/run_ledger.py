@@ -20,7 +20,7 @@ class RunStart:
     """
 
     mode: RunMode
-    source_system: str = "dummyjson"
+    source_system: str = "square_orders"
     snapshot_key: str | None = None
     git_sha: str | None = None
     args_json: Mapping[str, Any] | None = None

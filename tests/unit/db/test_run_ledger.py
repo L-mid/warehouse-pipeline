@@ -21,8 +21,8 @@ def test_run_ledger_happy_path() -> None:
         # mock info as data to create
         entry=RunStart(
             mode="snapshot",
-            source_system="dummyjson",
-            snapshot_key="dummyjson/v1",
+            source_system="square_orders",
+            snapshot_key="square_orders/v1",
             git_sha="abc123",
             args_json={"page_size": 100},
         ),
